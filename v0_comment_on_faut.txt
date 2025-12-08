@@ -1,0 +1,7 @@
+Compilation : 
+gcc serveur_pendu.c -o serveur
+gcc client_pendu.c -o client
+
+Exécution : 
+dans un terminal : ./serveur
+dans un autre terminal : ./client 127.0.0.1 5000

@@ -51,7 +51,7 @@ void creationSocket(int *socketEcoute,
 /*                          Gestion des messages client                        */
 /* -------------------------------------------------------------------------- */
 
-void recevoirMessage(int socketDialogue)
+int recevoirMessage(int socketDialogue)
 {
     char messageRecu[LG_MESSAGE];
     memset(messageRecu, 0, LG_MESSAGE);
@@ -59,11 +59,23 @@ void recevoirMessage(int socketDialogue)
     int lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
 
     if (lus <= 0) {
-        printf("Client déconnecté.\n");
-        return;
+        return 0; // le client s'est déconnecté
     }
 
-    printf("Message reçu : %s (%d octets)\n", messageRecu, lus);
+    // Récupération de l'adresse IP du client
+    struct sockaddr_in addrClient;
+    socklen_t len = sizeof(addrClient);
+
+    if (getpeername(socketDialogue, (struct sockaddr *)&addrClient, &len) == -1) {
+        perror("getpeername");
+        return lus;
+    }
+
+    char *ipClient = inet_ntoa(addrClient.sin_addr);
+
+    printf("%s a envoyé : %s (%d octets)\n", ipClient, messageRecu, lus);
+
+    return lus;
 }
 
 void envoyerMessage(int socketDialogue, const char *message)
@@ -113,7 +125,7 @@ char* creationMot()
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              Boucle principale                              */
+/*                              Boucle principale                             */
 /* -------------------------------------------------------------------------- */
 
 void boucleServeur(int socketEcoute)
@@ -123,6 +135,7 @@ void boucleServeur(int socketEcoute)
     struct sockaddr_in client;
 
     while (1) {
+
         printf("En attente d’un client...\n");
 
         socketDialogue = accept(socketEcoute,
@@ -136,23 +149,33 @@ void boucleServeur(int socketEcoute)
 
         printf("Connexion de %s\n", inet_ntoa(client.sin_addr));
 
-        while (1)
-        {
-            recevoirMessage(socketDialogue);
+        char messageAEnvoyer[LG_MESSAGE];
 
-            char* messageAEnvoyer;
+        while (1) {
+
+            int lus = recevoirMessage(socketDialogue);
+
+            if (lus == 0) {
+                printf("Client %s déconnecté.\n", inet_ntoa(client.sin_addr));
+                close(socketDialogue);
+                break;  // <--- Retour à "En attente d'un client..."
+            }
+
             printf("Entrez le message à envoyer (ou 'exit' pour quitter) : ");
-            scanf("%*c", &messageAEnvoyer);
+            fgets(messageAEnvoyer, LG_MESSAGE, stdin);
+            messageAEnvoyer[strcspn(messageAEnvoyer, "\n")] = '\0';
+
             if (strcmp(messageAEnvoyer, "exit") == 0) {
                 printf("Fermeture de la connexion avec %s\n", inet_ntoa(client.sin_addr));
+                close(socketDialogue);
                 break;
             }
+
             envoyerMessage(socketDialogue, messageAEnvoyer);
         }
-
-        close(socketDialogue);
     }
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*                                   MAIN                                      */

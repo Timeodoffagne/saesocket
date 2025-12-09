@@ -1,93 +1,169 @@
 #include <stdio.h>
-#include <stdlib.h> /* pour exit */
-#include <unistd.h> /* pour read, write, close, sleep */
+#include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <string.h> /* pour memset */
-#include <netinet/in.h> /* pour struct sockaddr_in */
-#include <arpa/inet.h> /* pour htons et inet_aton */
+#include <string.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-#define PORT 5000 //(ports >= 5000 réservés pour usage explicite)
-
+#define PORT 5000
 #define LG_MESSAGE 256
+#define LISTE_MOTS "mots.txt"
 
-int main(int argc, char *argv[]){
-	int socketEcoute;
+void creationSocket(int *socketEcoute,
+                    socklen_t *longueurAdresse,
+                    struct sockaddr_in *pointDeRencontreLocal)
+{
+    // Création du socket
+    *socketEcoute = socket(AF_INET, SOCK_STREAM, 0);
+    if (*socketEcoute < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+    printf("Socket créée avec succès ! (%d)\n", *socketEcoute);
 
-	struct sockaddr_in pointDeRencontreLocal;
-	socklen_t longueurAdresse;
+    // Préparation adresse locale
+    *longueurAdresse = sizeof(struct sockaddr_in);
+    memset(pointDeRencontreLocal, 0, *longueurAdresse);
 
-	int socketDialogue;
-	struct sockaddr_in pointDeRencontreDistant;
-	char messageRecu[LG_MESSAGE]; /* le message de la couche Application ! */
-	int ecrits, lus; /* nb d’octets ecrits et lus */
-	int retour;
+    pointDeRencontreLocal->sin_family = AF_INET;
+    pointDeRencontreLocal->sin_addr.s_addr = htonl(INADDR_ANY);
+    pointDeRencontreLocal->sin_port = htons(PORT);
 
-	// Crée un socket de communication
-	socketEcoute = socket(AF_INET, SOCK_STREAM, 0); 
-	// Teste la valeur renvoyée par l’appel système socket() 
-	if(socketEcoute < 0){
-		perror("socket"); // Affiche le message d’erreur 
-	exit(-1); // On sort en indiquant un code erreur
+    // bind
+    if (bind(*socketEcoute,
+             (struct sockaddr *)pointDeRencontreLocal,
+             *longueurAdresse) < 0) {
+        perror("bind");
+        exit(EXIT_FAILURE);
+    }
+    printf("Socket attachée avec succès !\n");
+
+    // listen
+    if (listen(*socketEcoute, 5) < 0) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+    printf("Socket placée en écoute passive...\n");
+}
+
+void recevoirMessage(int socketDialogue)
+{
+	char messageRecu[LG_MESSAGE];
+	int lus;
+
+	memset(messageRecu, 0, LG_MESSAGE);
+
+	lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
+
+	if (lus <= 0) {
+		printf("Client déconnecté.\n");
+		close(socketDialogue);
+		return;
 	}
-	printf("Socket créée avec succès ! (%d)\n", socketEcoute); // On prépare l’adresse d’attachement locale
-	//setsockopt()
 
+	printf("Message reçu : %s (%d octets)\n", messageRecu, lus);
+}
 
-	// Remplissage de sockaddrDistant (structure sockaddr_in identifiant le point d'écoute local)
-	longueurAdresse = sizeof(pointDeRencontreLocal);
-	// memset sert à faire une copie d'un octet n fois à partir d'une adresse mémoire donnée
-	// ici l'octet 0 est recopié longueurAdresse fois à partir de l'adresse &pointDeRencontreLocal
-	memset(&pointDeRencontreLocal, 0x00, longueurAdresse); pointDeRencontreLocal.sin_family = PF_INET;
-	pointDeRencontreLocal.sin_addr.s_addr = htonl(INADDR_ANY); // attaché à toutes les interfaces locales disponibles
-	pointDeRencontreLocal.sin_port = htons(PORT); // = 5000 ou plus
-	
-	// On demande l’attachement local de la socket
-	if((bind(socketEcoute, (struct sockaddr *)&pointDeRencontreLocal, longueurAdresse)) < 0) {
-		perror("bind");
-		exit(-2); 
+void envoyerMessage(int socketDialogue, const char *message)
+{
+	int nb = send(socketDialogue, message, strlen(message), 0);
+	if (nb < 0) {
+		perror("send");
+		close(socketDialogue);
+		exit(EXIT_FAILURE);
 	}
-	printf("Socket attachée avec succès !\n");
+}
 
-	// On fixe la taille de la file d’attente à 5 (pour les demandes de connexion non encore traitées)
-	if(listen(socketEcoute, 5) < 0){
-   		perror("listen");
-   		exit(-3);
-	}
-	printf("Socket placée en écoute passive ...\n");
-	
-	// boucle d’attente de connexion : en théorie, un serveur attend indéfiniment ! 
-	while(1){
-		memset(messageRecu, 'a', LG_MESSAGE*sizeof(char));
-		printf("Attente d’une demande de connexion (quitter avec Ctrl-C)\n\n");
+void boucleServeur(int socketEcoute)
+{
+    int socketDialogue;
+    socklen_t longueurAdresse;
+    struct sockaddr_in pointDeRencontreDistant;
+    char messageRecu[LG_MESSAGE];
+    int lus;
+
+    longueurAdresse = sizeof(pointDeRencontreDistant);
+
+    while (1) {
+        printf("Attente d’une demande de connexion...\n");
+
+        socketDialogue = accept(socketEcoute,
+                                (struct sockaddr *)&pointDeRencontreDistant,
+                                &longueurAdresse);
+
+        if (socketDialogue < 0) {
+            perror("accept");
+            close(socketEcoute);
+            exit(EXIT_FAILURE);
+        }
+
+        memset(messageRecu, 0, LG_MESSAGE);
+
+        lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
+
+        if (lus <= 0) {
+            printf("Client déconnecté.\n");
+            close(socketDialogue);
+            continue;
+        }
+
+        printf("Message reçu : %s (%d octets)\n", messageRecu, lus);
+
+		/* recuperation de l'addresse ip du client */
+		char *adresseIP = inet_ntoa(pointDeRencontreDistant.sin_addr);
+		printf("Adresse IP du client : %s\n", adresseIP);
+
+		const char *messageAEnvoyer = "Message bien reçu ! start x";
+		envoyerMessage(socketDialogue, messageAEnvoyer);
 		
-		// c’est un appel bloquant
-		socketDialogue = accept(socketEcoute, (struct sockaddr *)&pointDeRencontreDistant, &longueurAdresse);
-		if (socketDialogue < 0) {
-   			perror("accept");
-			close(socketDialogue);
-   			close(socketEcoute);
-   			exit(-4);
-		}
-		
-		// On réception les données du client (cf. protocole)
-		//lus = read(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char)); // ici appel bloquant
-		lus = recv(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char),0); // ici appel bloquant
-		switch(lus) {
-			case -1 : /* une erreur ! */ 
-				  perror("read"); 
-				  close(socketDialogue); 
-				  exit(-5);
-			case 0  : /* la socket est fermée */
-				  fprintf(stderr, "La socket a été fermée par le client !\n\n");
-   				  close(socketDialogue);
-   				  return 0;
-			default:  /* réception de n octets */
-				  printf("Message reçu : %s (%d octets)\n\n", messageRecu, lus);
-		}
+		close(socketDialogue);
+    }
+}
 
+char* creationMot(){
+	FILE *f = fopen(LISTE_MOTS, "r");
+	if (f == NULL) {
+		perror("Erreur lors de l'ouverture du fichier des mots");
+		exit(EXIT_FAILURE);
 	}
-	// On ferme la ressource avant de quitter
-   	close(socketEcoute);
-	return 0; 
+
+	static char mot[LG_MESSAGE];
+	int nombreMots = 0;
+	char ligne[LG_MESSAGE];
+
+	while (fgets(ligne, sizeof(ligne), f) != NULL) {
+		nombreMots++;
+	}
+
+	int motAleatoire = rand() % nombreMots;
+
+	rewind(f);
+
+	for (int i = 0; i <= motAleatoire; i++) {
+		fgets(mot, sizeof(mot), f);
+	}
+
+	mot[strcspn(mot, "\n")] = 0;
+
+	fclose(f);
+	return mot;
+}
+
+int main() {
+    int socketEcoute;
+    socklen_t longueurAdresse;
+    struct sockaddr_in pointDeRencontreLocal;
+
+    // Création et initialisation de la socket
+    creationSocket(&socketEcoute, &longueurAdresse, &pointDeRencontreLocal);
+
+    // Boucle principale du serveur
+    boucleServeur(socketEcoute);
+
+	char* mot = creationMot();
+    // Ne sera jamais atteint en pratique
+    close(socketEcoute);
+    return 0;
 }

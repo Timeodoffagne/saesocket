@@ -92,51 +92,48 @@ const char *recevoirMessage(int sock)
 // =====================================================
 void jeuDuPenduV0(int sock, const char* ip_dest)
 {
-    char buffer[256];
     const char *reponse;
-    const char *motCache;
-    const char *penduStade;
 
     printf("=== Début du jeu du pendu V0 ===\n");
 
-    // Attente de "start x"
     reponse = recevoirMessage(sock);
     printf("Serveur %s : %s\n", ip_dest, reponse);
 
-    if (strcmp(reponse, "start x") != 0) {
-        printf("Erreur : lancement refusé.\n");
+    if (strcmp(reponse, "start x") != 0)
         return;
-    }
 
-    // Boucle du jeu
-    while (strcmp(reponse, "VICTOIRE") != 0 &&
-           strcmp(reponse, "DEFAITE")  != 0)
+    while (1)
     {
-        // Mot masqué
-        motCache = recevoirMessage(sock);
-        // Essais restants
-        penduStade = recevoirMessage(sock);
+        const char *motCache  = recevoirMessage(sock);
+        const char *essais    = recevoirMessage(sock);
+        const char *signal    = recevoirMessage(sock); // WAIT ou autre
+
+        if (!motCache || !essais || !signal)
+            return;
+
+        if (!strcmp(motCache, "VICTOIRE") || !strcmp(motCache, "DEFAITE"))
+            break;
 
         printf("Mot : %s\n", motCache);
-        printf("Essais restants : %s\n", penduStade);
+        printf("Essais restants : %s\n", essais);
 
-        printf("Votre lettre : ");
+        char buffer[16];
+        printf("Lettre : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0;
 
         envoyerMessage(sock, buffer);
 
         reponse = recevoirMessage(sock);
-        printf("Serveur %s : %s\n", ip_dest, reponse);
+        printf("Serveur : %s\n", reponse);
+
+        if (!strcmp(reponse, "VICTOIRE") || !strcmp(reponse, "DEFAITE"))
+            break;
     }
 
-    if (strcmp(reponse, "VICTOIRE") == 0)
-        printf("Bravo ! Vous avez gagné !\n");
-    else
-        printf("Perdu !\n");
-
-    printf("=== Fin du jeu du pendu V0 ===\n");
+    printf("=== Fin du jeu ===\n");
 }
+
 
 // =====================================================
 //  BOUCLE PRINCIPALE DU CLIENT

@@ -110,70 +110,49 @@ void jeuDuPendu(int socketDialogue)
     int essaisRestants = 10;
     int lettresTrouvees = 0;
 
-    char motCache[LG_MESSAGE];
-
-    printf("Nouveau jeu du pendu ! Mot de %d lettres.\n", longueurMot);
-
     envoyerMessage(socketDialogue, "start x");
 
     while (essaisRestants > 0 && lettresTrouvees < longueurMot)
     {
-        /* --- Construction du mot caché --- */
-        memset(motCache, 0, LG_MESSAGE);
+        char motCache[LG_MESSAGE] = {0};
+
+        // Construction du mot caché
         for (int i = 0; i < longueurMot; i++)
-        {
-            if (strchr(lettresDevinees, motADeviner[i]))
-            {
-                strncat(motCache, &motADeviner[i], 1);
-            }
-            else
-            {
-                strcat(motCache, "_");
-            }
-        }
+            motCache[i] = strchr(lettresDevinees, motADeviner[i]) ? motADeviner[i] : '_';
 
-        envoyerMessage(socketDialogue, motCache);
+        // --- ENVOI DES 3 MESSAGES ---
+        envoyerMessage(socketDialogue, motCache); // message 1
+        char essais[4];
+        sprintf(essais, "%d", essaisRestants);
+        envoyerMessage(socketDialogue, essais); // message 2
+        envoyerMessage(socketDialogue, "WAIT"); // message 3 → synchro OK
 
-        /* --- Envoi du nombre d'essais restants --- */
-        char essaisRestantsChar[4];
-        sprintf(essaisRestantsChar, "%d", essaisRestants);
-        sleep(0.5);
-        
-        envoyerMessage(socketDialogue, essaisRestantsChar);
-
-        printf("En attente d'une lettre du client...\n");
-
-        /* --- Réception de la lettre envoyée par le client --- */
-        char lettre;
-        int lus = recv(socketDialogue, &lettre, 1, 0);
+        // --- RECEPTION D’UNE LETTRE ---
+        char buffer[LG_MESSAGE] = {0};
+        int lus = recv(socketDialogue, buffer, LG_MESSAGE, 0);
 
         if (lus <= 0)
-        {
-            printf("Client déconnecté pendant le jeu.\n");
             return;
-        }
 
-        printf("Lettre reçue : %c\n", lettre);
+        char lettre = buffer[0];
 
-        /* Si lettre déjà utilisée */
+        // Lettre déjà jouée ?
         if (strchr(lettresDevinees, lettre))
         {
-            envoyerMessage(socketDialogue, "Lettre déjà devinée");
+            envoyerMessage(socketDialogue, "Lettre déjà jouée");
             continue;
         }
 
-        /* On ajoute la lettre à la liste des lettres jouées */
+        // Ajout dans liste
         strncat(lettresDevinees, &lettre, 1);
 
-        /* Vérifie si lettre correcte */
         if (strchr(motADeviner, lettre))
         {
-            envoyerMessage(socketDialogue, "Bonne lettre !");
+            envoyerMessage(socketDialogue, "Bonne lettre");
+
             for (int i = 0; i < longueurMot; i++)
-            {
                 if (motADeviner[i] == lettre)
                     lettresTrouvees++;
-            }
         }
         else
         {
@@ -182,17 +161,10 @@ void jeuDuPendu(int socketDialogue)
         }
     }
 
-    /* --- Fin de partie --- */
     if (lettresTrouvees == longueurMot)
-    {
         envoyerMessage(socketDialogue, "VICTOIRE");
-        printf("Le client a gagné !\n");
-    }
     else
-    {
         envoyerMessage(socketDialogue, "DEFAITE");
-        printf("Le client a perdu. Mot : %s\n", motADeviner);
-    }
 }
 
 /* -------------------------------------------------------------------------- */

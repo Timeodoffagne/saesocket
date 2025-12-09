@@ -13,7 +13,8 @@
 int creationDeSocket(const char *ip_dest, int port_dest)
 {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
+    if (sock < 0)
+    {
         perror("Erreur en création de la socket");
         exit(EXIT_FAILURE);
     }
@@ -25,12 +26,14 @@ int creationDeSocket(const char *ip_dest, int port_dest)
     serv.sin_family = AF_INET;
     serv.sin_port = htons(port_dest);
 
-    if (inet_aton(ip_dest, &serv.sin_addr) == 0) {
+    if (inet_aton(ip_dest, &serv.sin_addr) == 0)
+    {
         fprintf(stderr, "Adresse IP invalide !\n");
         exit(EXIT_FAILURE);
     }
 
-    if (connect(sock, (struct sockaddr *)&serv, sizeof(serv)) == -1) {
+    if (connect(sock, (struct sockaddr *)&serv, sizeof(serv)) == -1)
+    {
         perror("Erreur de connexion au serveur");
         close(sock);
         exit(EXIT_FAILURE);
@@ -40,14 +43,14 @@ int creationDeSocket(const char *ip_dest, int port_dest)
     return sock;
 }
 
-
 // =====================================================
 //  FONCTION : envoyer un message
 // =====================================================
 void envoyerMessage(int sock, const char *message)
 {
     int nb = send(sock, message, strlen(message) + 1, 0);
-    if (nb <= 0) {
+    if (nb <= 0)
+    {
         perror("Erreur en écriture (send)");
         close(sock);
         exit(EXIT_FAILURE);
@@ -55,12 +58,11 @@ void envoyerMessage(int sock, const char *message)
     printf("Message envoyé : '%s' (%d octets)\n", message, nb);
 }
 
-
 // =====================================================
 //  FONCTION : recevoir une réponse du serveur
 //  → retourne un pointeur sur buffer statique
 // =====================================================
-const char* recevoirMessage(int sock)
+const char *recevoirMessage(int sock)
 {
     static char buffer[256];
 
@@ -69,11 +71,14 @@ const char* recevoirMessage(int sock)
     printf("En attente de la réponse du serveur...\n");
     int nb = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
-    if (nb < 0) {
+    if (nb < 0)
+    {
         perror("Erreur en lecture (recv)");
         close(sock);
         exit(EXIT_FAILURE);
-    } else if (nb == 0) {
+    }
+    else if (nb == 0)
+    {
         printf("Serveur déconnecté.\n");
         close(sock);
         return "Error";
@@ -94,70 +99,65 @@ void jeuDuPenduV0(int sock, const char* ip_dest)
 
     printf("=== Début du jeu du pendu V0 ===\n");
 
-    // Attend confirmation du serveur
+    // Attente de "start x"
     reponse = recevoirMessage(sock);
     printf("Serveur %s : %s\n", ip_dest, reponse);
 
     if (strcmp(reponse, "start x") != 0) {
-        printf("Erreur : le serveur n'a pas accepté le lancement du jeu.\n");
+        printf("Erreur : lancement refusé.\n");
         return;
     }
 
-    // BOUCLE PRINCIPALE DU JEU
-    while (!strcmp(reponse, "VICTOIRE") == 0 || !strcmp(reponse,"DEFAITE") == 0 ) {
-
-        // resevoir le mot marsquer 
+    // Boucle du jeu
+    while (strcmp(reponse, "VICTOIRE") != 0 &&
+           strcmp(reponse, "DEFAITE")  != 0)
+    {
+        // Mot masqué
         motCache = recevoirMessage(sock);
-        // reçevoir le stade du pendu
+        // Essais restants
         penduStade = recevoirMessage(sock);
-        // --- demande lettre à l’utilisateur ---
-        printf("Le mot à deviner : %s\n", motCache);  
-        printf("État du pendu : %s\n", penduStade);     
-        printf("Entrez une lettre : ");
+
+        printf("Mot : %s\n", motCache);
+        printf("Essais restants : %s\n", penduStade);
+
+        printf("Votre lettre : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0;
-        
-        // Si l’utilisateur tape "exit", il quitte la partie
-        if (strcmp(buffer, "exit") == 0) {
-            envoyerMessage(sock, buffer);
-            printf("Sortie du jeu du pendu.\n");
-            return;
-        }
 
-        // --- envoi de la lettre au serveur ---
         envoyerMessage(sock, buffer);
 
-        // --- réception de l’état du jeu ---
         reponse = recevoirMessage(sock);
         printf("Serveur %s : %s\n", ip_dest, reponse);
-        
     }
-    if (reponse == "VICTOIRE") {
-        printf("Félicitations ! Vous avez gagné !\n");
-    } else if (reponse == "DEFAITE") {
-        printf("Dommage ! Vous avez perdu !\n");
-    }
+
+    if (strcmp(reponse, "VICTOIRE") == 0)
+        printf("Bravo ! Vous avez gagné !\n");
+    else
+        printf("Perdu !\n");
+
     printf("=== Fin du jeu du pendu V0 ===\n");
 }
-
 
 // =====================================================
 //  BOUCLE PRINCIPALE DU CLIENT
 // =====================================================
-void boucleClient(int sock, const char* ip_dest)
+void boucleClient(int sock, const char *ip_dest)
 {
     char buffer[256];
-    while (1) {
+    while (1)
+    {
         // Saisie utilisateur
         printf("Entrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
 
-        if (strcmp(buffer, "exit") == 0) {
+        if (strcmp(buffer, "exit") == 0)
+        {
             printf("Fermeture du client.\n");
             break;
-        
-        } else if (strncmp(buffer, "start x", 7) == 0) {
+        }
+        else if (strncmp(buffer, "start x", 7) == 0)
+        {
 
             // Envoi au serveur pour lancer la partie
             envoyerMessage(sock, "start x");
@@ -175,19 +175,20 @@ void boucleClient(int sock, const char* ip_dest)
         // Réception
         const char *reponse = recevoirMessage(sock);
         printf("Serveur %s : %s\n", ip_dest, reponse);
-        if (strcmp(reponse, "Error") == 0) {
+        if (strcmp(reponse, "Error") == 0)
+        {
             break;
         }
     }
 }
-
 
 // =====================================================
 //  MAIN
 // =====================================================
 int main(int argc, char *argv[])
 {
-    if (argc < 3) {
+    if (argc < 3)
+    {
         printf("USAGE : %s ip port\n", argv[0]);
         return EXIT_FAILURE;
     }

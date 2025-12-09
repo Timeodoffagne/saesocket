@@ -58,13 +58,15 @@ void envoyerMessage(int sock, const char *message)
 
 // =====================================================
 //  FONCTION : recevoir une réponse du serveur
+//  → retourne un pointeur sur buffer statique
 // =====================================================
-void recevoirMessage(int sock)
+const char* recevoirMessage(int sock)
 {
-    char buffer[256];
+    static char buffer[256];
+
     memset(buffer, 0, sizeof(buffer));
 
-    // ⚠️ Bloque ici en attendant la réponse du serveur
+    printf("En attente de la réponse du serveur...\n");
     int nb = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
     if (nb < 0) {
@@ -73,16 +75,47 @@ void recevoirMessage(int sock)
         exit(EXIT_FAILURE);
     } else if (nb == 0) {
         printf("Serveur déconnecté.\n");
-        return;
+        close(sock);
+        return "Error";
     }
 
-    printf("Réponse du serveur : %s\n", buffer);
+    return buffer;
 }
 
 
+// =====================================================
+//  BOUCLE PRINCIPALE DU CLIENT
+// =====================================================
+void boucleClient(int sock, const char* ip_dest)
+{
+    char buffer[256];
+    while (1) {
+        // Saisie utilisateur
+        printf("Entrez un message à envoyer au serveur (ou 'exit' pour quitter) : ");
+        fgets(buffer, sizeof(buffer), stdin);
+        buffer[strcspn(buffer, "\n")] = 0; // Retirer le \n
+
+        if (strcmp(buffer, "exit") == 0) {
+            printf("Fermeture du client.\n");
+            break;
+        }
+
+        // Envoi du message
+        envoyerMessage(sock, buffer);
+        
+
+        // Réception
+        const char *reponse = recevoirMessage(sock);
+        printf("Serveur %s : %s\n", ip_dest, reponse);
+           if (strcmp(reponse, "Error") == 0) {
+            break;
+        }
+    }
+}
+
 
 // =====================================================
-//  PROGRAMME PRINCIPAL
+//  MAIN
 // =====================================================
 int main(int argc, char *argv[])
 {
@@ -102,14 +135,8 @@ int main(int argc, char *argv[])
     // Création + connexion
     int sock = creationDeSocket(ip_dest, port_dest);
 
-    // Message à envoyer
-    const char *msg = "start x";
-
-    // Envoi
-    envoyerMessage(sock, msg);
-
-    // ➜ Attendre la réponse du serveur
-    recevoirMessage(sock);
+    // Boucle de communication client ↔ serveur
+    boucleClient(sock, ip_dest);
 
     close(sock);
     return 0;

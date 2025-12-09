@@ -11,19 +11,20 @@
 #define LG_MESSAGE 256
 #define LISTE_MOTS "mots.txt"
 
+/* -------------------------------------------------------------------------- */
+/*                            Création de la socket                            */
+/* -------------------------------------------------------------------------- */
+
 void creationSocket(int *socketEcoute,
                     socklen_t *longueurAdresse,
                     struct sockaddr_in *pointDeRencontreLocal)
 {
-    // Création du socket
     *socketEcoute = socket(AF_INET, SOCK_STREAM, 0);
     if (*socketEcoute < 0) {
         perror("socket");
         exit(EXIT_FAILURE);
     }
-    printf("Socket créée avec succès ! (%d)\n", *socketEcoute);
 
-    // Préparation adresse locale
     *longueurAdresse = sizeof(struct sockaddr_in);
     memset(pointDeRencontreLocal, 0, *longueurAdresse);
 
@@ -31,139 +32,142 @@ void creationSocket(int *socketEcoute,
     pointDeRencontreLocal->sin_addr.s_addr = htonl(INADDR_ANY);
     pointDeRencontreLocal->sin_port = htons(PORT);
 
-    // bind
     if (bind(*socketEcoute,
              (struct sockaddr *)pointDeRencontreLocal,
              *longueurAdresse) < 0) {
         perror("bind");
         exit(EXIT_FAILURE);
     }
-    printf("Socket attachée avec succès !\n");
 
-    // listen
     if (listen(*socketEcoute, 5) < 0) {
         perror("listen");
         exit(EXIT_FAILURE);
     }
-    printf("Socket placée en écoute passive...\n");
+
+    printf("Serveur démarré : écoute sur le port %d\n", PORT);
 }
+
+/* -------------------------------------------------------------------------- */
+/*                          Gestion des messages client                        */
+/* -------------------------------------------------------------------------- */
 
 void recevoirMessage(int socketDialogue)
 {
-	char messageRecu[LG_MESSAGE];
-	int lus;
+    char messageRecu[LG_MESSAGE];
+    memset(messageRecu, 0, LG_MESSAGE);
 
-	memset(messageRecu, 0, LG_MESSAGE);
+    int lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
 
-	lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
+    if (lus <= 0) {
+        printf("Client déconnecté.\n");
+        return;
+    }
 
-	if (lus <= 0) {
-		printf("Client déconnecté.\n");
-		close(socketDialogue);
-		return;
-	}
-
-	printf("Message reçu : %s (%d octets)\n", messageRecu, lus);
+    printf("Message reçu : %s (%d octets)\n", messageRecu, lus);
 }
 
 void envoyerMessage(int socketDialogue, const char *message)
 {
-	int nb = send(socketDialogue, message, strlen(message), 0);
-	if (nb < 0) {
-		perror("send");
-		close(socketDialogue);
-		exit(EXIT_FAILURE);
-	}
+    int nb = send(socketDialogue, message, strlen(message), 0);
+    if (nb < 0) {
+        perror("send");
+        exit(EXIT_FAILURE);
+    }
 }
+
+/* -------------------------------------------------------------------------- */
+/*                               Mot aléatoire                                 */
+/* -------------------------------------------------------------------------- */
+
+char* creationMot()
+{
+    FILE *f = fopen(LISTE_MOTS, "r");
+    if (!f) {
+        perror("Erreur ouverture fichier mots");
+        exit(EXIT_FAILURE);
+    }
+
+    static char mot[LG_MESSAGE];
+    char ligne[LG_MESSAGE];
+    int nombreMots = 0;
+
+    while (fgets(ligne, LG_MESSAGE, f))
+        nombreMots++;
+
+    if (nombreMots == 0) {
+        fprintf(stderr, "Erreur : fichier mots vide.\n");
+        fclose(f);
+        exit(EXIT_FAILURE);
+    }
+
+    int index = rand() % nombreMots;
+    rewind(f);
+
+    for (int i = 0; i <= index; i++)
+        fgets(mot, LG_MESSAGE, f);
+
+    mot[strcspn(mot, "\n")] = '\0';
+    fclose(f);
+
+    return mot;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              Boucle principale                              */
+/* -------------------------------------------------------------------------- */
 
 void boucleServeur(int socketEcoute)
 {
     int socketDialogue;
-    socklen_t longueurAdresse;
-    struct sockaddr_in pointDeRencontreDistant;
-    char messageRecu[LG_MESSAGE];
-    int lus;
-
-    longueurAdresse = sizeof(pointDeRencontreDistant);
+    socklen_t longueurAdresse = sizeof(struct sockaddr_in);
+    struct sockaddr_in client;
 
     while (1) {
-        printf("Attente d’une demande de connexion...\n");
+        printf("En attente d’un client...\n");
 
         socketDialogue = accept(socketEcoute,
-                                (struct sockaddr *)&pointDeRencontreDistant,
+                                (struct sockaddr *)&client,
                                 &longueurAdresse);
 
         if (socketDialogue < 0) {
             perror("accept");
-            close(socketEcoute);
-            exit(EXIT_FAILURE);
-        }
-
-        memset(messageRecu, 0, LG_MESSAGE);
-
-        lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
-
-        if (lus <= 0) {
-            printf("Client déconnecté.\n");
-            close(socketDialogue);
             continue;
         }
 
-        printf("Message reçu : %s (%d octets)\n", messageRecu, lus);
+        printf("Connexion de %s\n", inet_ntoa(client.sin_addr));
 
-		/* recuperation de l'addresse ip du client */
-		char *adresseIP = inet_ntoa(pointDeRencontreDistant.sin_addr);
-		printf("Adresse IP du client : %s\n", adresseIP);
+        while (1)
+        {
+            recevoirMessage(socketDialogue);
 
-		const char *messageAEnvoyer = "Message bien reçu ! start x";
-		envoyerMessage(socketDialogue, messageAEnvoyer);
-		
-		close(socketDialogue);
+            char* messageAEnvoyer;
+            printf("Entrez le message à envoyer (ou 'exit' pour quitter) : ");
+            scanf("%*c", &messageAEnvoyer);
+            if (strcmp(messageAEnvoyer, "exit") == 0) {
+                printf("Fermeture de la connexion avec %s\n", inet_ntoa(client.sin_addr));
+                break;
+            }
+            envoyerMessage(socketDialogue, messageAEnvoyer);
+        }
+
+        close(socketDialogue);
     }
 }
 
-char* creationMot(){
-	FILE *f = fopen(LISTE_MOTS, "r");
-	if (f == NULL) {
-		perror("Erreur lors de l'ouverture du fichier des mots");
-		exit(EXIT_FAILURE);
-	}
+/* -------------------------------------------------------------------------- */
+/*                                   MAIN                                      */
+/* -------------------------------------------------------------------------- */
 
-	static char mot[LG_MESSAGE];
-	int nombreMots = 0;
-	char ligne[LG_MESSAGE];
-
-	while (fgets(ligne, sizeof(ligne), f) != NULL) {
-		nombreMots++;
-	}
-
-	int motAleatoire = rand() % nombreMots;
-
-	rewind(f);
-
-	for (int i = 0; i <= motAleatoire; i++) {
-		fgets(mot, sizeof(mot), f);
-	}
-
-	mot[strcspn(mot, "\n")] = 0;
-
-	fclose(f);
-	return mot;
-}
-
-int main() {
+int main()
+{
     int socketEcoute;
     socklen_t longueurAdresse;
     struct sockaddr_in pointDeRencontreLocal;
 
-    // Création et initialisation de la socket
     creationSocket(&socketEcoute, &longueurAdresse, &pointDeRencontreLocal);
 
-    // Boucle principale du serveur
     boucleServeur(socketEcoute);
 
-	char* mot = creationMot();
-    // Ne sera jamais atteint en pratique
     close(socketEcoute);
     return 0;
 }

@@ -82,6 +82,64 @@ const char* recevoirMessage(int sock)
     return buffer;
 }
 
+// =====================================================
+//  FONCTION : jeu du pendu V0
+// =====================================================
+void jeuDuPenduV0(int sock, const char* ip_dest)
+{
+    char buffer[256];
+    const char *reponse;
+    const char *motCache;
+    const char *penduStade;
+
+    printf("=== Début du jeu du pendu V0 ===\n");
+
+    // Attend confirmation du serveur
+    reponse = recevoirMessage(sock);
+    printf("Serveur %s : %s\n", ip_dest, reponse);
+
+    if (strcmp(reponse, "start x") != 0) {
+        printf("Erreur : le serveur n'a pas accepté le lancement du jeu.\n");
+        return;
+    }
+
+    // BOUCLE PRINCIPALE DU JEU
+    while (!strcmp(reponse, "VICTOIRE") == 0 || !strcmp(reponse,"DEFAITE") == 0 ) {
+
+        // resevoir le mot marsquer 
+        motCache = recevoirMessage(sock);
+        // reçevoir le stade du pendu
+        penduStade = recevoirMessage(sock);
+        // --- demande lettre à l’utilisateur ---
+        printf("Le mot à deviner : %s\n", motCache);  
+        printf("État du pendu : %s\n", penduStade);     
+        printf("Entrez une lettre : ");
+        fgets(buffer, sizeof(buffer), stdin);
+        buffer[strcspn(buffer, "\n")] = 0;
+        
+        // Si l’utilisateur tape "exit", il quitte la partie
+        if (strcmp(buffer, "exit") == 0) {
+            envoyerMessage(sock, buffer);
+            printf("Sortie du jeu du pendu.\n");
+            return;
+        }
+
+        // --- envoi de la lettre au serveur ---
+        envoyerMessage(sock, buffer);
+
+        // --- réception de l’état du jeu ---
+        reponse = recevoirMessage(sock);
+        printf("Serveur %s : %s\n", ip_dest, reponse);
+        
+    }
+    if (reponse == "VICTOIRE") {
+        printf("Félicitations ! Vous avez gagné !\n");
+    } else if (reponse == "DEFAITE") {
+        printf("Dommage ! Vous avez perdu !\n");
+    }
+    printf("=== Fin du jeu du pendu V0 ===\n");
+}
+
 
 // =====================================================
 //  BOUCLE PRINCIPALE DU CLIENT
@@ -91,23 +149,33 @@ void boucleClient(int sock, const char* ip_dest)
     char buffer[256];
     while (1) {
         // Saisie utilisateur
-        printf("Entrez un message à envoyer au serveur (ou 'exit' pour quitter) : ");
+        printf("Entrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
         fgets(buffer, sizeof(buffer), stdin);
-        buffer[strcspn(buffer, "\n")] = 0; // Retirer le \n
+        buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
 
         if (strcmp(buffer, "exit") == 0) {
             printf("Fermeture du client.\n");
             break;
+        
+        } else if (strncmp(buffer, "start x", 7) == 0) {
+
+            // Envoi au serveur pour lancer la partie
+            envoyerMessage(sock, "start x");
+
+            printf("Démarrage d'une partie de pendu V0...\n");
+            jeuDuPenduV0(sock, ip_dest);
+
+            // IMPORTANT : ne pas renvoyer "start x" une 2e fois
+            continue;
         }
 
         // Envoi du message
         envoyerMessage(sock, buffer);
-        
 
         // Réception
         const char *reponse = recevoirMessage(sock);
         printf("Serveur %s : %s\n", ip_dest, reponse);
-           if (strcmp(reponse, "Error") == 0) {
+        if (strcmp(reponse, "Error") == 0) {
             break;
         }
     }

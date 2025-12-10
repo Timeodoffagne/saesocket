@@ -110,7 +110,7 @@ void envoyerMessage(int socketDialogue, const char *message)
     }
 }
 
-void jeuDuPendu(int socketDialogue)
+int jeuDuPendu(int socketDialogue)
 {
     char *motADeviner = creationMot();
     int longueurMot = strlen(motADeviner);
@@ -160,9 +160,8 @@ void jeuDuPendu(int socketDialogue)
         if (lus <= 0)
         {
             printf("Client déconnecté.\n");
-            // passer en mode attente d'un nouveau client
-
-            return;
+            // Indiquer à l'appelant que le client s'est déconnecté
+            return 0;
         }
 
         buffer[strcspn(buffer, "\n")] = 0; // clean \n
@@ -209,6 +208,8 @@ void jeuDuPendu(int socketDialogue)
         envoyerMessage(socketDialogue, "DEFAITE");
         printf("Le client a perdu. Mot : %s\n", motADeviner);
     }
+
+    return 1; /* partie terminée normalement, garder la connexion ouverte */
 }
 
 /* -------------------------------------------------------------------------- */
@@ -247,8 +248,14 @@ int recevoirMessage(int socketDialogue)
     if (strcmp(messageRecu, "start x") == 0)
     {
         printf("Commande spéciale reçue : démarrage du jeu.\n");
-        jeuDuPendu(socketDialogue);
-        deconnexion(socketDialogue);
+        /* Lance le jeu ; si le client se déconnecte pendant la partie, propager 0 */
+        int res = jeuDuPendu(socketDialogue);
+        if (res == 0)
+        {
+            /* le client s'est déconnecté pendant la partie */
+            return 0;
+        }
+        /* partie terminée normalement : ne pas fermer la socket, permettre relance */
         return lus;
     }
     else if (strcmp(messageRecu, "exit") == 0)

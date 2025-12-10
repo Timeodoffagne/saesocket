@@ -93,7 +93,7 @@ void clearScreen()
 }
 void afficherLePendu(const char *state)
 {
-    FILE *file = fopen("../assets/pendu.txt", "r");
+    FILE *file = fopen("../../assets/pendu.txt", "r");
     if (file == NULL)
     {
         perror("Erreur lors de l'ouverture du fichier pendu.txt");

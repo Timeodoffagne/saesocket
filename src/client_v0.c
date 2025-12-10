@@ -118,16 +118,15 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         if (motCache != "END")
         {
             printf("Mot : %s\n", motCache);
-        }
-        // Réception du nombre d'essais
-        penduStade = recevoirMessage(sock);
-        if (penduStade != "END")
+            // Réception du nombre d'essais
+            penduStade = recevoirMessage(sock);
             printf("Essais restants : %s\n", penduStade);
             // Demande d'une lettre
             printf("Votre lettre : ");
             fgets(buffer, sizeof(buffer), stdin);
             buffer[strcspn(buffer, "\n")] = 0;
             envoyerMessage(sock, buffer);
+        }
 
         // Réception du retour du serveur : Bonne lettre / Mauvaise lettre / VICTOIRE / DEFAITE
         reponse = recevoirMessage(sock);

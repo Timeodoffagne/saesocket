@@ -92,14 +92,14 @@ const char *recevoirMessage(int sock)
 // =====================================================
 void jeuDuPenduV0(int sock, const char *ip_dest)
 {
-    char buffer[256];
-    const char *reponse;
-    const char *motCache;
-    const char *penduStade;
+    static char buffer[256];
+    char *reponse;
+    char *motCache;
+    char *penduStade;
 
     printf("=== Début du jeu du pendu V0 ===\n");
 
-    // Attente de "start x"
+    // --- Attente de "start x" ---
     reponse = recevoirMessage(sock);
     printf("Serveur %s : %s\n", ip_dest, reponse);
 
@@ -109,27 +109,31 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         return;
     }
 
-    // Boucle du jeu
+    // --- Boucle principale ---
     while (strcmp(reponse, "VICTOIRE") != 0 &&
            strcmp(reponse, "DEFAITE") != 0)
     {
-        // Mot masqué
+        // Réception du mot masqué
         motCache = recevoirMessage(sock);
         printf("Mot : %s\n", motCache);
-        // Essais restants
+
+        // Réception du nombre d'essais
         penduStade = recevoirMessage(sock);
         printf("Essais restants : %s\n", penduStade);
 
+        // Demande d'une lettre
         printf("Votre lettre : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0;
 
         envoyerMessage(sock, buffer);
 
+        // Réception du retour du serveur : Bonne lettre / Mauvaise lettre / VICTOIRE / DEFAITE
         reponse = recevoirMessage(sock);
         printf("Serveur %s : %s\n", ip_dest, reponse);
     }
 
+    // --- Fin du jeu ---
     if (strcmp(reponse, "VICTOIRE") == 0)
         printf("Bravo ! Vous avez gagné !\n");
     else

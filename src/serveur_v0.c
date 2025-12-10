@@ -137,6 +137,7 @@ void jeuDuPendu(int socketDialogue)
         /* Envoie le nombre d’essais */
         char essaisStr[8];
         sprintf(essaisStr, "%d", essaisRestants);
+        sleep(1);
         envoyerMessage(socketDialogue, essaisStr);
 
         /* Réception d’une lettre */
@@ -165,7 +166,7 @@ void jeuDuPendu(int socketDialogue)
         strncat(lettresDevinees, &lettre, 1);
 
         /* Bonne ou mauvaise lettre ? */
-        if (strchr(motADeviner, lettre))
+        if (strchr(motADeviner, lettre) && (essaisRestants > 0 && lettresTrouvees < longueurMot))
         {
             for (int i = 0; i < longueurMot; i++)
                 if (motADeviner[i] == lettre)
@@ -173,7 +174,7 @@ void jeuDuPendu(int socketDialogue)
 
             envoyerMessage(socketDialogue, "Bonne lettre !");
         }
-        else
+        else if (essaisRestants > 0 && lettresTrouvees < longueurMot)
         {
             essaisRestants--;
             envoyerMessage(socketDialogue, "Mauvaise lettre");

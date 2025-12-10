@@ -60,7 +60,7 @@ void envoyerMessage(int sock, const char *message)
 
 // =====================================================
 //  FONCTION : recevoir une réponse du serveur
-//  → retourne un pointeur sur buffer statique
+//  -> retourne un pointeur sur buffer statique
 // =====================================================
 const char *recevoirMessage(int sock)
 {

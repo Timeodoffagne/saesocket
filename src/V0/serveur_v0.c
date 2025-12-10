@@ -11,7 +11,7 @@
 
 #define PORT 5000
 #define LG_MESSAGE 256
-#define LISTE_MOTS "../../assets/mots.txt"
+#define LISTE_MOTS "../assets/mots.txt"
 
 /* -------------------------------------------------------------------------- */
 /*                            Création de la socket                            */
@@ -61,11 +61,34 @@ void creationSocket(int *socketEcoute,
 
 char *creationMot()
 {
-    FILE *f = fopen(LISTE_MOTS, "r");
+    const char *try_paths[] = {
+        "../../assets/mots.txt", /* when running from src/V0 */
+        "../assets/mots.txt",    /* when running from src/ */
+        "assets/mots.txt"        /* when running from project root */
+    };
+    FILE *f = NULL;
+    const int npaths = sizeof(try_paths) / sizeof(try_paths[0]);
+    int used_index = -1;
+    for (int i = 0; i < npaths; ++i)
+    {
+        f = fopen(try_paths[i], "r");
+        if (f)
+        {
+            used_index = i;
+            break;
+        }
+    }
     if (!f)
     {
-        perror("Erreur ouverture fichier mots");
+        fprintf(stderr, "Erreur ouverture fichier mots. Chemins essayés:\n");
+        for (int i = 0; i < npaths; ++i)
+            fprintf(stderr, "  - %s\n", try_paths[i]);
+        perror("fopen");
         exit(EXIT_FAILURE);
+    }
+    else
+    {
+        printf("Chargement du fichier mots depuis : %s\n", try_paths[used_index]);
     }
 
     static char mot[LG_MESSAGE];

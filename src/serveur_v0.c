@@ -240,11 +240,27 @@ int recevoirMessage(int socketDialogue)
 
     printf("%s a envoyé : %s (%d octets)\n", ipClient, messageRecu, lus);
 
+    /* Gestion des commandes :
+       - "start x" : démarre le jeu (comportement existant)
+       - "exit"    : le client demande la fermeture -> on ferme côté serveur
+       - autre     : on informe le client que ce n'est pas une commande */
     if (strcmp(messageRecu, "start x") == 0)
     {
         printf("Commande spéciale reçue : démarrage du jeu.\n");
         jeuDuPendu(socketDialogue);
         deconnexion(socketDialogue);
+        return lus;
+    }
+    else if (strcmp(messageRecu, "exit") == 0)
+    {
+        printf("Client %s a demandé la fermeture.\n", ipClient);
+        envoyerMessage(socketDialogue, "Au revoir");
+        close(socketDialogue);
+        return 0;
+    }
+    else
+    {
+        envoyerMessage(socketDialogue, "Commande inconnue. Envoyez 'start x' ou 'exit'.");
     }
 
     return lus;
@@ -253,7 +269,6 @@ int recevoirMessage(int socketDialogue)
 /* -------------------------------------------------------------------------- */
 /*                              Boucle principale                             */
 /* -------------------------------------------------------------------------- */
-
 void boucleServeur(int socketEcoute)
 {
     int socketDialogue;
@@ -350,7 +365,6 @@ void boucleServeur(int socketEcoute)
 /* -------------------------------------------------------------------------- */
 /*                                   MAIN                                      */
 /* -------------------------------------------------------------------------- */
-
 int main()
 {
     int socketEcoute;

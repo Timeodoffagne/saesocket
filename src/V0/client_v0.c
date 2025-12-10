@@ -255,10 +255,52 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
     }
 
     // --- Fin du jeu ---
-    if (strcmp(reponse, "VICTOIRE") == 0)
-        printf("\n!!! Gagné !!!\n\n");
-    else
+    if (strcmp(reponse, "VICTOIRE") == 0) {
+    printf("\n!!! Gagné !!!\n\n");
+    } else {
         printf("\n!!! Perdu !!!\n\n");
+
+        FILE *file = NULL;
+        const char *paths[] = {
+            "../../assets/pendu.txt",
+            "../assets/pendu.txt",
+            "assets/pendu.txt"
+        };
+
+        // Test des trois chemins
+        for (int i = 0; i < 3; i++) {
+            file = fopen(paths[i], "r");
+            if (file != NULL) {
+                // printf("[DEBUG] Fichier trouvé : %s\n", paths[i]);
+                break;
+            }
+        }
+
+        if (file == NULL) {
+            perror("Impossible d'ouvrir pendu.txt");
+            return;
+        }
+
+        char line[256];
+        int debut = 320;
+        int fin = 352;
+
+        // Saute jusqu’à "debut"
+        for (int i = 0; i < debut; i++) {
+            if (!fgets(line, sizeof(line), file))
+                break;
+        }
+
+        // Affiche le bloc final
+        for (int i = debut; i < fin; i++) {
+            if (!fgets(line, sizeof(line), file))
+                break;
+            printf("%s", line);
+        }
+
+        fclose(file);
+    }
+
 }
 
 // =====================================================
@@ -270,7 +312,7 @@ void boucleClient(int sock, const char *ip_dest)
     while (1)
     {
         // Saisie utilisateur
-        printf("Entrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
+        printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
 

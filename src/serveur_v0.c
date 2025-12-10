@@ -182,6 +182,9 @@ void jeuDuPendu(int socketDialogue)
     }
 
     envoyerMessage(socketDialogue, "END");
+    sleep(1);
+    envoyerMessage(socketDialogue, "END");
+    sleep(1);
 
     /* Fin du jeu */
     if (lettresTrouvees == longueurMot)

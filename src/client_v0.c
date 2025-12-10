@@ -115,11 +115,14 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
     {
         // Réception du mot masqué
         motCache = recevoirMessage(sock);
-        printf("Mot : %s\n", motCache);
-
+        if (motCache != "END")
+        {
+            printf("Mot : %s\n", motCache);
+        }
         // Réception du nombre d'essais
         penduStade = recevoirMessage(sock);
-        printf("Essais restants : %s\n", penduStade);
+        if (penduStade != "END")
+            printf("Essais restants : %s\n", penduStade);
 
         // Demande d'une lettre
         printf("Votre lettre : ");

@@ -123,13 +123,11 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         penduStade = recevoirMessage(sock);
         if (penduStade != "END")
             printf("Essais restants : %s\n", penduStade);
-
-        // Demande d'une lettre
-        printf("Votre lettre : ");
-        fgets(buffer, sizeof(buffer), stdin);
-        buffer[strcspn(buffer, "\n")] = 0;
-
-        envoyerMessage(sock, buffer);
+            // Demande d'une lettre
+            printf("Votre lettre : ");
+            fgets(buffer, sizeof(buffer), stdin);
+            buffer[strcspn(buffer, "\n")] = 0;
+            envoyerMessage(sock, buffer);
 
         // Réception du retour du serveur : Bonne lettre / Mauvaise lettre / VICTOIRE / DEFAITE
         reponse = recevoirMessage(sock);

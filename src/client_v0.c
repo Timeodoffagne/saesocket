@@ -55,7 +55,7 @@ void envoyerMessage(int sock, const char *message)
         close(sock);
         exit(EXIT_FAILURE);
     }
-    printf("Message envoyé : '%s' (%d octets)\n", message, nb);
+    // printf("[DEBUG] Message envoyé : '%s' (%d octets)\n", message, nb);
 }
 
 // =====================================================
@@ -68,7 +68,7 @@ const char *recevoirMessage(int sock)
 
     memset(buffer, 0, sizeof(buffer));
 
-    printf("En attente de la réponse du serveur...\n");
+    // printf("[DEBUG] En attente de la réponse du serveur...\n");
     int nb = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
     if (nb < 0)
@@ -87,6 +87,11 @@ const char *recevoirMessage(int sock)
     return buffer;
 }
 
+void clearScreen()
+{
+    printf("\033[2J\033[H");
+}
+
 // =====================================================
 //  FONCTION : jeu du pendu V0
 // =====================================================
@@ -97,11 +102,9 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
     const char *motCache;
     const char *penduStade;
 
-    printf("=== Début du jeu du pendu V0 ===\n");
-
     // --- Attente de "start x" ---
     reponse = recevoirMessage(sock);
-    printf("Serveur %s : %s\n", ip_dest, reponse);
+    // printf("[DEBUG] Serveur %s : %s\n", ip_dest, reponse);
 
     if (strcmp(reponse, "start x") != 0)
     {
@@ -115,9 +118,12 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
     {
         // Réception du mot masqué
         motCache = recevoirMessage(sock);
-        if (motCache != "END")
+        clearScreen();
+        printf("--------------------=== Jeu du pendu V0 ===--------------------");
+        // printf("[DEBUG] motCache = %s\n", motCache);
+        if (strcmp(motCache, "END") != 0)
         {
-            printf("Mot : %s\n", motCache);
+            printf("\n\nMot : %s    ", motCache);
             // Réception du nombre d'essais
             penduStade = recevoirMessage(sock);
             printf("Essais restants : %s\n", penduStade);
@@ -127,19 +133,16 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
             buffer[strcspn(buffer, "\n")] = 0;
             envoyerMessage(sock, buffer);
         }
-
         // Réception du retour du serveur : Bonne lettre / Mauvaise lettre / VICTOIRE / DEFAITE
         reponse = recevoirMessage(sock);
-        printf("Serveur %s : %s\n", ip_dest, reponse);
+        // printf("[DEBUG] reponse = %s\n", reponse);
     }
 
     // --- Fin du jeu ---
     if (strcmp(reponse, "VICTOIRE") == 0)
-        printf("Bravo ! Vous avez gagné !\n");
+        printf("\n!!! Gagné !!!\n\n");
     else
-        printf("Perdu !\n");
-
-    printf("=== Fin du jeu du pendu V0 ===\n");
+        printf("\n!!! Perdu !!!\n\n");
 }
 
 // =====================================================

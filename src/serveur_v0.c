@@ -128,7 +128,7 @@ void jeuDuPendu(int socketDialogue)
             if (strchr(lettresDevinees, motADeviner[i]))
                 strncat(motCache, &motADeviner[i], 1);
             else
-                strcat(motCache, "_");
+                strcat(motCache, "_ ");
         }
 
         /* Envoie le mot masqué */

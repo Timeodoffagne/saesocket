@@ -93,11 +93,33 @@ void clearScreen()
 }
 void afficherLePendu(const char *state)
 {
-    FILE *file = fopen("../../assets/pendu.txt", "r");
-    if (file == NULL)
+    const char *try_paths[] = {
+        "../../assets/pendu.txt", /* when running from src/V0 */
+        "../assets/pendu.txt",    /* when running from src/ */
+        "assets/pendu.txt"        /* when running from project root */
+    };
+    FILE *file = NULL;
+    int used_index = -1;
+    for (int i = 0; i < (int)(sizeof(try_paths) / sizeof(try_paths[0])); ++i)
     {
-        perror("Erreur lors de l'ouverture du fichier pendu.txt");
+        file = fopen(try_paths[i], "r");
+        if (file)
+        {
+            used_index = i;
+            break;
+        }
+    }
+    if (!file)
+    {
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt. Chemins essayés:\n");
+        for (int i = 0; i < (int)(sizeof(try_paths) / sizeof(try_paths[0])); ++i)
+            fprintf(stderr, "  - %s\n", try_paths[i]);
         return;
+    }
+    else
+    {
+        /* optional debug info */
+        // printf("Chargement de pendu depuis : %s\n", try_paths[used_index]);
     }
 
     int stade = atoi(state);  // Convertit "0","1","2" en int

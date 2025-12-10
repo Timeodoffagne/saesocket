@@ -93,9 +93,9 @@ const char *recevoirMessage(int sock)
 void jeuDuPenduV0(int sock, const char *ip_dest)
 {
     static char buffer[256];
-    char *reponse;
-    char *motCache;
-    char *penduStade;
+    const char *reponse;
+    const char *motCache;
+    const char *penduStade;
 
     printf("=== Début du jeu du pendu V0 ===\n");
 

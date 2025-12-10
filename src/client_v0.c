@@ -91,6 +91,99 @@ void clearScreen()
 {
     printf("\033[2J\033[H");
 }
+void afficherLePendu(const char *state)
+{
+    FILE *file = fopen("../assets/pendu.txt", "r");
+    if (file == NULL)
+    {
+        perror("Erreur lors de l'ouverture du fichier pendu.txt");
+        return;
+    }
+
+    int stade = atoi(state);  // Convertit "0","1","2" en int
+
+    char line[256];
+    int debut = 0;
+    int fin = 0;
+
+    switch (stade)
+    {
+    case 10:
+        debut = 0;
+        fin = 32;
+        break;
+
+    case 9:
+        debut = 32;
+        fin = 64;
+        break;
+
+    case 8:
+        debut = 64;
+        fin = 96;
+        break;
+
+    case 7:
+        debut = 96;
+        fin = 128;
+        break;
+
+    case 6:
+        debut = 128;
+        fin = 160;
+        break;
+
+    case 5:
+        debut = 160;
+        fin = 192;
+        break;
+
+    case 4:
+        debut = 192;
+        fin = 224;
+        break;
+
+    case 3:
+        debut = 224;
+        fin = 256;
+        break;
+
+    case 2:
+        debut = 256;
+        fin = 288;
+        break;
+
+    case 1:
+        debut = 288;
+        fin = 320;
+        break;
+
+    case 0:
+        debut = 320;
+        fin = 352;
+        break;
+
+    default:
+        printf("[DEBUG] Stade invalide : %d\n", stade);
+        fclose(file);
+        return;
+    }
+
+    // Saute les lignes jusqu'au bloc voulu
+    for (int i = 0; i < debut; i++)
+        fgets(line, sizeof(line), file);
+
+    // Affiche le bloc complet
+    for (int i = debut; i < fin; i++)
+    {
+        if (fgets(line, sizeof(line), file) == NULL)
+            break;
+        printf("%s", line);
+    }
+
+    fclose(file);
+}
+
 
 // =====================================================
 //  FONCTION : jeu du pendu V0
@@ -128,6 +221,7 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
             penduStade = recevoirMessage(sock);
             printf("Essais restants : %s\n", penduStade);
             // Demande d'une lettre
+            afficherLePendu(penduStade);
             printf("Votre lettre : ");
             fgets(buffer, sizeof(buffer), stdin);
             buffer[strcspn(buffer, "\n")] = 0;

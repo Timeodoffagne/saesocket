@@ -11,7 +11,7 @@
 
 #define PORT 5000
 #define LG_MESSAGE 256
-#define LISTE_MOTS "../assets/mots.txt"
+#define LISTE_MOTS "../../assets/mots.txt"
 
 /* -------------------------------------------------------------------------- */
 /*                            Création de la socket                            */

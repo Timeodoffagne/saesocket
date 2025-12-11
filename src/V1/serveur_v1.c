@@ -111,202 +111,469 @@ void envoyerMessage(int socketDialogue, const char *message)
     }
 }
 
-/* nouvelle fonction utilitaire : envoie en verif d'erreur */
-static void envoyerMessageSafe(int sock, const char *msg)
-{
-    if (send(sock, msg, strlen(msg), 0) < 0)
-    {
-        perror("send");
-    }
-}
-
-/* construit le mot masqué à partir du mot et lettresDevinees */
-static void construireMotCache(const char *mot, const char *lettresDevinees, char *motCache)
-{
-    motCache[0] = '\0';
-    for (size_t i = 0; i < strlen(mot); ++i)
-    {
-        if (strchr(lettresDevinees, mot[i]))
-        {
-            strncat(motCache, &mot[i], 1);
-            strcat(motCache, " ");
-        }
-        else
-        {
-            strcat(motCache, "_ ");
-        }
-    }
-}
-
-/* Partie pour deux joueurs : s1 = premier connecté, s2 = deuxième (joue en premier) */
-static void jouerDeuxJoueurs(int s1, int s2)
+int jeuDuPendu(int socketDialogue)
 {
     char *motADeviner = creationMot();
     int longueurMot = strlen(motADeviner);
+
     char lettresDevinees[LG_MESSAGE] = {0};
     int essaisRestants = 10;
     int lettresTrouvees = 0;
+
     char motCache[LG_MESSAGE];
 
-    printf("Nouvelle partie V1 : mot = %s (%d lettres)\n", motADeviner, longueurMot);
+    printf("Nouveau jeu du pendu ! Mot = %s (%d lettres)\n", motADeviner, longueurMot);
 
-    /* Informer les deux clients de leur rôle */
-    char buf[LG_MESSAGE];
-    snprintf(buf, sizeof(buf), "WAIT %d", longueurMot);
-    envoyerMessageSafe(s1, buf);
-    snprintf(buf, sizeof(buf), "START %d", longueurMot);
-    envoyerMessageSafe(s2, buf);
+    /* 1) Le serveur confirme le début */
+    /* Attention, n'envoyer que lorsque 2 clients sont connecté*/
+    envoyerMessage(socketDialogue, "start x");
 
-    int active = s2; /* le 2e joueur commence */
-    int other = s1;
-
-    while (1)
+    while (essaisRestants > 0 && lettresTrouvees < longueurMot)
     {
-        /* Envoyer TURN à l'actif */
-        envoyerMessageSafe(active, "TURN");
+        /* Construction du mot caché */
+        memset(motCache, 0, LG_MESSAGE);
 
-        /* Envoyer mot masqué + essais à l'actif */
-        construireMotCache(motADeviner, lettresDevinees, motCache);
-        envoyerMessageSafe(active, motCache);
-
-        snprintf(buf, sizeof(buf), "%d", essaisRestants);
-        envoyerMessageSafe(active, buf);
-
-        /* Attendre lettre de l'actif (avec select pour détecter déconnexions) */
-        fd_set rfds;
-        FD_ZERO(&rfds);
-        FD_SET(active, &rfds);
-        struct timeval tv;
-        tv.tv_sec = 120;
-        tv.tv_usec = 0; /* timeout raisonnable */
-        int sel = select(active + 1, &rfds, NULL, NULL, &tv);
-        if (sel <= 0)
+        for (int i = 0; i < longueurMot; i++)
         {
-            /* timeout ou erreur -> considérer comme déconnexion */
-            fprintf(stderr, "Pas de réponse du joueur actif ou erreur.\n");
-            envoyerMessageSafe(other, "OPP_DISCONNECT");
-            break;
-        }
-
-        if (FD_ISSET(active, &rfds))
-        {
-            char lettreBuf[LG_MESSAGE];
-            int n = recv(active, lettreBuf, sizeof(lettreBuf) - 1, 0);
-            if (n <= 0)
+            if (strchr(lettresDevinees, motADeviner[i]))
             {
-                /* déconnexion de l'actif */
-                perror("recv");
-                envoyerMessageSafe(other, "OPP_DISCONNECT");
-                break;
-            }
-            lettreBuf[n] = '\0';
-            lettreBuf[strcspn(lettreBuf, "\n")] = '\0';
-            char lettre = lettreBuf[0];
-
-            printf("Joueur %s a joué la lettre : %c\n", inet_ntoa(((struct sockaddr_in){0}).sin_addr), lettre);
-
-            /* Lettre déjà jouée ? */
-            if (strchr(lettresDevinees, lettre))
-            {
-                envoyerMessageSafe(active, "Lettre déjà devinée");
-                /* on ne change pas le tour (on pourrait laisser l'autre jouer) -> on passe au tour suivant */
+                strncat(motCache, &motADeviner[i], 1);
+                strncat(motCache, " ", 1);
             }
             else
             {
-                strncat(lettresDevinees, &lettre, 1);
-                if (strchr(motADeviner, lettre))
-                {
-                    int occurrences = 0;
-                    for (int i = 0; i < longueurMot; ++i)
-                        if (motADeviner[i] == lettre)
-                            occurrences++;
-                    lettresTrouvees += occurrences;
-                    envoyerMessageSafe(active, "Bonne lettre !");
-                }
-                else
-                {
-                    essaisRestants--;
-                    envoyerMessageSafe(active, "Mauvaise lettre");
-                }
+                strcat(motCache, "_ ");
             }
+        }
 
-            /* Mettre à jour motCache et envoyer UPDATE à tous */
-            construireMotCache(motADeviner, lettresDevinees, motCache);
-            envoyerMessageSafe(s1, "UPDATE");
-            envoyerMessageSafe(s1, motCache);
-            snprintf(buf, sizeof(buf), "%d", essaisRestants);
-            envoyerMessageSafe(s1, buf);
+        /* Envoie le mot masqué */
+        envoyerMessage(socketDialogue, motCache);
 
-            envoyerMessageSafe(s2, "UPDATE");
-            envoyerMessageSafe(s2, motCache);
-            envoyerMessageSafe(s2, buf);
+        /* Envoie le nombre d’essais */
+        char essaisStr[8];
+        sprintf(essaisStr, "%d", essaisRestants);
+        sleep(1);
+        envoyerMessage(socketDialogue, essaisStr);
 
-            /* Vérifier fin de partie */
-            if (lettresTrouvees >= longueurMot)
-            {
-                /* active gagne */
-                envoyerMessageSafe(active, "WIN");
-                envoyerMessageSafe(other, "LOSE");
-                printf("Le joueur sur socket %d a gagné.\n", active);
-                break;
-            }
+        /* Réception d’une lettre */
+        char buffer[16];
+        int lus = recv(socketDialogue, buffer, sizeof(buffer), 0);
 
-            if (essaisRestants <= 0)
-            {
-                /* plus d'essais : tout le monde perd (on envoie DEFAITE aux deux) */
-                envoyerMessageSafe(s1, "LOSE");
-                envoyerMessageSafe(s2, "LOSE");
-                printf("Plus d'essais restants. Fin de la partie.\n");
-                break;
-            }
+        if (lus <= 0)
+        {
+            printf("Client déconnecté.\n");
+            // Indiquer à l'appelant que le client s'est déconnecté
+            return 0;
+        }
 
-            /* Alterner le tour */
-            int tmp = active;
-            active = other;
-            other = tmp;
+        buffer[strcspn(buffer, "\n")] = 0; // clean \n
+        char lettre = buffer[0];
+
+        printf("Lettre reçue : %c\n", lettre);
+
+        /* Lettre déjà jouée */
+        if (strchr(lettresDevinees, lettre))
+        {
+            envoyerMessage(socketDialogue, "Lettre déjà devinée");
+            continue;
+        }
+
+        /* Ajout */
+        strncat(lettresDevinees, &lettre, 1);
+
+        /* Bonne ou mauvaise lettre ? */
+        if (strchr(motADeviner, lettre) && (essaisRestants > 0 && lettresTrouvees < longueurMot))
+        {
+            for (int i = 0; i < longueurMot; i++)
+                if (motADeviner[i] == lettre)
+                    lettresTrouvees++;
+
+            envoyerMessage(socketDialogue, "Bonne lettre !");
+        }
+        else if (essaisRestants > 0 && lettresTrouvees < longueurMot)
+        {
+            essaisRestants--;
+            envoyerMessage(socketDialogue, "Mauvaise lettre");
         }
     }
 
-    /* Fermer les deux sockets de la partie */
-    close(s1);
-    close(s2);
-    printf("Partie terminée, sockets fermées.\n");
+    envoyerMessage(socketDialogue, "END");
+    sleep(1);
+    /* Fin du jeu */
+    if (lettresTrouvees == longueurMot)
+    {
+        envoyerMessage(socketDialogue, "VICTOIRE");
+        printf("Le client a gagné !\n");
+    }
+    else
+    {
+        envoyerMessage(socketDialogue, "DEFAITE");
+        printf("Le client a perdu. Mot : %s\n", motADeviner);
+    }
+
+    return 1; /* partie terminée normalement, garder la connexion ouverte */
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              Boucle principale                             */
+/*                          Structure pour les infos client                    */
+/* -------------------------------------------------------------------------- */
+typedef struct {
+    int socketDialogue;
+    struct sockaddr_in client;
+} ClientInfo;
+
+/* -------------------------------------------------------------------------- */
+/*                          Gestion des messages client                        */
+/* -------------------------------------------------------------------------- */
+void *gererClient(void *arg)
+{
+    ClientInfo *info = (ClientInfo *)arg;
+    int socketDialogue = info->socketDialogue;
+
+    while (1)
+    {
+        int res = recevoirMessage(socketDialogue);
+        if (res <= 0)
+        {
+            deconnexion(socketDialogue);
+            break;
+        }
+    }
+
+    free(info);
+    pthread_exit(NULL);
+}
+
+int recevoirMessage(int socketDialogue)
+{
+    char messageRecu[LG_MESSAGE];
+    memset(messageRecu, 0, LG_MESSAGE);
+
+    int lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
+
+    if (lus <= 0)
+    {
+        return 0; // le client s'est déconnecté
+    }
+
+    // Récupération de l'adresse IP du client
+    struct sockaddr_in addrClient;
+    socklen_t len = sizeof(addrClient);
+
+    if (getpeername(socketDialogue, (struct sockaddr *)&addrClient, &len) == -1)
+    {
+        perror("getpeername");
+        return lus;
+    }
+
+    char *ipClient = inet_ntoa(addrClient.sin_addr);
+
+    printf("%s a envoyé : %s (%d octets)\n", ipClient, messageRecu, lus);
+
+    /* Gestion des commandes :
+       - "start x" : démarre le jeu (comportement existant)
+       - "exit"    : le client demande la fermeture -> on ferme côté serveur
+       - autre     : on informe le client que ce n'est pas une commande */
+    if (strcmp(messageRecu, "start x") == 0)
+    {
+        printf("Commande spéciale reçue : démarrage du jeu.\n");
+        /* Lance le jeu ; si le client se déconnecte pendant la partie, propager 0 */
+        int res = jeuDuPendu(socketDialogue);
+        if (res == 0)
+        {
+            /* le client s'est déconnecté pendant la partie */
+            return 0;
+        }
+        /* partie terminée normalement : ne pas fermer la socket, permettre relance */
+        return lus;
+    }
+    else if (strcmp(messageRecu, "exit") == 0)
+    {
+        printf("Client %s a demandé la fermeture.\n", ipClient);
+        envoyerMessage(socketDialogue, "Au revoir");
+        close(socketDialogue);
+        return 0;
+    }
+    else
+    {
+        envoyerMessage(socketDialogue, "Commande inconnue. Envoyez 'start x' ou 'exit'.");
+    }
+
+    return lus;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Ajout : état global de matchmaking / jeu                                    */
+/* -------------------------------------------------------------------------- */
+static int waiting_socket = -1;                      /* socket du 1er joueur en attente */
+static struct sockaddr_in waiting_addr;              /* adresse du 1er joueur */
+static int game_in_progress = 0;
+
+/* -------------------------------------------------------------------------- */
+/*  Fonction utilitaire : envoi sûr (avec gestion d'erreur sans exit brut)     */
+/* -------------------------------------------------------------------------- */
+static int envoyerMessage_noexit(int socketDialogue, const char *message)
+{
+    int nb = send(socketDialogue, message, strlen(message), 0);
+    if (nb < 0)
+    {
+        perror("send");
+        return -1;
+    }
+    return nb;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Jeu entre 2 joueurs : mêmes règles que V0, mais états séparés par joueur   */
+/*  sock1 = premier connecté (attend), sock2 = deuxième connecté (joue 1er)    */
+/* -------------------------------------------------------------------------- */
+static void jeuDuPenduMultijoueur(int sock1, int sock2)
+{
+    char *motADeviner = creationMot();
+    int longueurMot = strlen(motADeviner);
+
+    /* états séparés pour chaque joueur */
+    char lettresDevinees1[LG_MESSAGE] = {0};
+    char lettresDevinees2[LG_MESSAGE] = {0};
+    int essais1 = 10;
+    int essais2 = 10;
+    int trouve1 = 0;
+    int trouve2 = 0;
+
+    char motCache[LG_MESSAGE];
+    char buffer[LG_MESSAGE];
+
+    printf("Nouvelle partie multijoueur : mot = %s (%d lettres)\n", motADeviner, longueurMot);
+
+    /* Réveiller les deux clients (ils attendent la confirmation) en envoyant "start x" */
+    if (envoyerMessage_noexit(sock2, "start x") < 0 || envoyerMessage_noexit(sock1, "start x") < 0)
+    {
+        /* si l'un des envois échoue, on ferme les sockets et termine */
+        close(sock1);
+        close(sock2);
+        return;
+    }
+
+    /* active = 2 (second connecté joue en premier), puis alterner */
+    int active = 2;
+
+    while (1)
+    {
+        int curSock = (active == 1) ? sock1 : sock2;
+        char *curLettres = (active == 1) ? lettresDevinees1 : lettresDevinees2;
+        int *curEssais = (active == 1) ? &essais1 : &essais2;
+        int *curTrouve = (active == 1) ? &trouve1 : &trouve2;
+
+        /* Construire mot masqué pour le joueur actif */
+        memset(motCache, 0, sizeof(motCache));
+        for (int i = 0; i < longueurMot; i++)
+        {
+            if (strchr(curLettres, motADeviner[i]))
+            {
+                strncat(motCache, &motADeviner[i], 1);
+                strncat(motCache, " ", 1);
+            }
+            else
+            {
+                strcat(motCache, "_ ");
+            }
+        }
+
+        /* Envoyer mot masqué au joueur actif */
+        if (envoyerMessage_noexit(curSock, motCache) < 0)
+            goto cleanup_disconnect;
+
+        /* Envoyer essais restants au joueur actif */
+        char essaisStr[8];
+        sprintf(essaisStr, "%d", *curEssais);
+        sleep(1);
+        if (envoyerMessage_noexit(curSock, essaisStr) < 0)
+            goto cleanup_disconnect;
+
+        /* Attendre la lettre du joueur actif */
+        memset(buffer, 0, sizeof(buffer));
+        int lus = recv(curSock, buffer, sizeof(buffer) - 1, 0);
+        if (lus <= 0)
+        {
+            printf("Un joueur s'est déconnecté pendant la partie.\n");
+            goto cleanup_disconnect;
+        }
+        buffer[strcspn(buffer, "\n")] = 0;
+        char lettre = buffer[0];
+        printf("Joueur %d a envoyé la lettre : %c\n", active, lettre);
+
+        /* Lettre déjà jouée ? */
+        if (strchr(curLettres, lettre))
+        {
+            if (envoyerMessage_noexit(curSock, "Lettre déjà devinée") < 0)
+                goto cleanup_disconnect;
+            /* même joueur rejoue : on ne change pas active */
+            continue;
+        }
+
+        /* Ajout à ses lettres devinées */
+        strncat(curLettres, &lettre, 1);
+
+        /* Vérifier si bonne lettre pour le mot (état individuel) */
+        if (strchr(motADeviner, lettre))
+        {
+            /* compter occurrences */
+            int added = 0;
+            for (int i = 0; i < longueurMot; i++)
+                if (motADeviner[i] == lettre)
+                    added++;
+            *curTrouve += added;
+
+            if (envoyerMessage_noexit(curSock, "Bonne lettre !") < 0)
+                goto cleanup_disconnect;
+        }
+        else
+        {
+            (*curEssais)--;
+            if (envoyerMessage_noexit(curSock, "Mauvaise lettre") < 0)
+                goto cleanup_disconnect;
+        }
+
+        /* Vérifier victoire */
+        if (*curTrouve >= longueurMot)
+        {
+            /* joueur actif gagne */
+            if (envoyerMessage_noexit(curSock, "END") < 0)
+                goto cleanup_disconnect;
+            sleep(1);
+            if (envoyerMessage_noexit(curSock, "VICTOIRE") < 0)
+                goto cleanup_disconnect;
+
+            /* informer l'autre joueur qu'il a perdu */
+            int otherSock = (active == 1) ? sock2 : sock1;
+            if (envoyerMessage_noexit(otherSock, "END") >= 0)
+            {
+                sleep(1);
+                envoyerMessage_noexit(otherSock, "DEFAITE");
+            }
+
+            printf("Joueur %d a gagné la partie.\n", active);
+            break;
+        }
+
+        /* Si les deux joueurs n'ont plus d'essais -> fin */
+        if (essais1 <= 0 && essais2 <= 0)
+        {
+            /* déclarer les deux perdants */
+            envoyerMessage_noexit(sock1, "END");
+            sleep(1);
+            envoyerMessage_noexit(sock1, "DEFAITE");
+            envoyerMessage_noexit(sock2, "END");
+            sleep(1);
+            envoyerMessage_noexit(sock2, "DEFAITE");
+            printf("Les deux joueurs ont épuisé leurs essais. Fin de la partie.\n");
+            break;
+        }
+
+        /* changer de joueur pour le tour suivant */
+        active = (active == 1) ? 2 : 1;
+    }
+
+cleanup_disconnect:
+    /* fermeture des sockets en fin de partie */
+    close(sock1);
+    close(sock2);
+    return;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Remplacement : boucleServeur et logique de matchmaking                    */
 /* -------------------------------------------------------------------------- */
 void boucleServeur(int socketEcoute)
 {
+    int socketDialogue;
+    socklen_t longueurAdresse = sizeof(struct sockaddr_in);
+    struct sockaddr_in client;
+
     while (1)
     {
-        printf("En attente d’un client (1/2)...\n");
-        struct sockaddr_in client1;
-        socklen_t len = sizeof(client1);
-        int s1 = accept(socketEcoute, (struct sockaddr *)&client1, &len);
-        if (s1 < 0)
+        printf("En attente d’un client...\n");
+
+        socketDialogue = accept(socketEcoute,
+                                (struct sockaddr *)&client,
+                                &longueurAdresse);
+
+        if (socketDialogue < 0)
         {
             perror("accept");
             continue;
         }
-        printf("Premier client connecté : %s\n", inet_ntoa(client1.sin_addr));
 
-        printf("En attente d’un client (2/2)...\n");
-        struct sockaddr_in client2;
-        len = sizeof(client2);
-        int s2 = accept(socketEcoute, (struct sockaddr *)&client2, &len);
-        if (s2 < 0)
+        printf("Connexion de %s\n", inet_ntoa(client.sin_addr));
+
+        /* Lire la première commande du client (bloquant) */
+        char messageRecu[LG_MESSAGE];
+        memset(messageRecu, 0, sizeof(messageRecu));
+        int lus = recv(socketDialogue, messageRecu, sizeof(messageRecu) - 1, 0);
+
+        if (lus <= 0)
         {
-            perror("accept (second)");
-            close(s1);
+            printf("Client %s déconnecté immédiatement.\n", inet_ntoa(client.sin_addr));
+            close(socketDialogue);
             continue;
         }
-        printf("Deuxième client connecté : %s\n", inet_ntoa(client2.sin_addr));
+        messageRecu[strcspn(messageRecu, "\n")] = 0;
+        printf("%s a envoyé : %s (%d octets)\n", inet_ntoa(client.sin_addr), messageRecu, lus);
 
-        /* Lancer la partie synchronisée pour s1 et s2 (bloquant) */
-        jouerDeuxJoueurs(s1, s2);
+        if (strcmp(messageRecu, "start x") == 0)
+        {
+            /* Demande de matchmaking */
+            if (game_in_progress)
+            {
+                /* refuser nouvelle demande pendant qu'une partie est en cours */
+                envoyerMessage_noexit(socketDialogue, "Serveur occupé. Réessayez plus tard.");
+                close(socketDialogue);
+                continue;
+            }
 
-        /* Après la partie, retour en attente d'une nouvelle paire */
+            if (waiting_socket == -1)
+            {
+                /* Premier joueur : le mettre en attente (ne rien renvoyer maintenant) */
+                waiting_socket = socketDialogue;
+                waiting_addr = client;
+                printf("Premier joueur (%s) en attente d'un adversaire...\n", inet_ntoa(client.sin_addr));
+                /* Le client est bloqué dans son recv côté client, en attente de 'start x' du serveur */
+                continue;
+            }
+            else
+            {
+                /* Deuxième joueur : on lance la partie entre waiting_socket et socketDialogue */
+                int sock1 = waiting_socket;         /* premier connecté (attend) */
+                int sock2 = socketDialogue;         /* second connecté (joue 1er) */
+                struct sockaddr_in addr1 = waiting_addr;
+                printf("Match trouvé : %s (1er) vs %s (2e)\n", inet_ntoa(addr1.sin_addr), inet_ntoa(client.sin_addr));
+
+                /* Marquer partie en cours */
+                game_in_progress = 1;
+                waiting_socket = -1;
+
+                /* Lancer la partie (bloquant, le serveur ne gère qu'une partie à la fois) */
+                jeuDuPenduMultijoueur(sock1, sock2);
+
+                /* Partie terminée, libérer l'état */
+                game_in_progress = 0;
+                waiting_socket = -1;
+                printf("Partie terminée. Retour à l'attente de nouveaux joueurs.\n");
+                continue;
+            }
+        }
+        else if (strcmp(messageRecu, "exit") == 0)
+        {
+            envoyerMessage_noexit(socketDialogue, "Au revoir");
+            close(socketDialogue);
+            continue;
+        }
+        else
+        {
+            envoyerMessage_noexit(socketDialogue, "Commande inconnue. Envoyez 'start x' ou 'exit'.");
+            close(socketDialogue);
+            continue;
+        }
     }
 }
 

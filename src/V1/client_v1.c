@@ -303,95 +303,48 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
 
 }
 
-/* Nouveau : jeu du pendu en mode 2 joueurs (V1) */
-void jeuDuPenduV1(int sock)
-{
-    char buffer[256];
-    const char *msg;
-
-    /* Attendre message initial : "WAIT <len>" ou "START <len>" */
-    msg = recevoirMessage(sock);
-    if (!msg) return;
-
-    if (strncmp(msg, "WAIT", 4) == 0)
-    {
-        printf("Connecté en tant que joueur 1 : attente du second joueur...\n");
-        printf("Info serveur : %s\n", msg);
-    }
-    else if (strncmp(msg, "START", 5) == 0)
-    {
-        printf("Connecté en tant que joueur 2 : vous jouez en premier !\n");
-        printf("Info serveur : %s\n", msg);
-    }
-    else
-    {
-        printf("Message inattendu du serveur : %s\n", msg);
-        return;
-    }
-
-    /* Boucle principale : traiter TURN / UPDATE / WIN / LOSE / OPP_DISCONNECT */
-    while (1)
-    {
-        msg = recevoirMessage(sock);
-        if (!msg) return;
-
-        if (strcmp(msg, "TURN") == 0)
-        {
-            /* On reçoit mot masqué puis essais */
-            const char *motCache = recevoirMessage(sock);
-            const char *essais = recevoirMessage(sock);
-            clearScreen();
-            printf("C'est votre tour.\nMot : %s\nEssais restants : %s\n", motCache, essais);
-            afficherLePendu(essais);
-            printf("Votre lettre : ");
-            if (fgets(buffer, sizeof(buffer), stdin) == NULL) return;
-            buffer[strcspn(buffer, "\n")] = 0;
-            envoyerMessage(sock, buffer);
-
-            /* recevoir feedback */
-            const char *feedback = recevoirMessage(sock);
-            if (!feedback) return;
-            printf("Serveur : %s\n", feedback);
-        }
-        else if (strcmp(msg, "UPDATE") == 0)
-        {
-            const char *motCache = recevoirMessage(sock);
-            const char *essais = recevoirMessage(sock);
-            clearScreen();
-            printf("État mis à jour :\nMot : %s\nEssais restants : %s\n", motCache, essais);
-            afficherLePendu(essais);
-        }
-        else if (strcmp(msg, "WIN") == 0)
-        {
-            printf("\n!!! Vous avez gagné !!!\n");
-            break;
-        }
-        else if (strcmp(msg, "LOSE") == 0)
-        {
-            printf("\n!!! Vous avez perdu !!!\n");
-            break;
-        }
-        else if (strcmp(msg, "OPP_DISCONNECT") == 0)
-        {
-            printf("L'adversaire s'est déconnecté. Fin de la partie.\n");
-            break;
-        }
-        else
-        {
-            /* message libre du serveur */
-            printf("Serveur : %s\n", msg);
-        }
-    }
-}
-
-/* Boucle principale du client V1 : après connexion, lancer jeu V1 */
+// =====================================================
+//  BOUCLE PRINCIPALE DU CLIENT
+// =====================================================
 void boucleClient(int sock, const char *ip_dest)
 {
-    /* Attendre le premier message du serveur (WAIT ou START) et gérer la partie */
-    jeuDuPenduV1(sock);
+    char buffer[256];
+    while (1)
+    {
+        // Saisie utilisateur
+        printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
+        fgets(buffer, sizeof(buffer), stdin);
+        buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
 
-    /* Après la partie on revient au shell utilisateur si besoin (ici on ferme) */
-    printf("Fin de la session V1.\n");
+        if (strcmp(buffer, "exit") == 0)
+        {
+            printf("Fermeture du client.\n");
+            break;
+        }
+        else if (strncmp(buffer, "start x", 7) == 0)
+        {
+
+            // Envoi au serveur pour lancer la partie
+            envoyerMessage(sock, "start x");
+
+            printf("Démarrage d'une partie de pendu V0...\n");
+            jeuDuPenduV0(sock, ip_dest);
+
+            // IMPORTANT : ne pas renvoyer "start x" une 2e fois
+            continue;
+        }
+
+        // Envoi du message
+        envoyerMessage(sock, buffer);
+
+        // Réception
+        const char *reponse = recevoirMessage(sock);
+        printf("Serveur %s : %s\n", ip_dest, reponse);
+        if (strcmp(reponse, "Error") == 0)
+        {
+            break;
+        }
+    }
 }
 
 // =====================================================

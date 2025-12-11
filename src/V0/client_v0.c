@@ -330,7 +330,6 @@ void boucleClient(int sock, const char *ip_dest)
             printf("Démarrage d'une partie de pendu V0...\n");
             jeuDuPenduV0(sock, ip_dest);
 
-            // IMPORTANT : ne pas renvoyer "start x" une 2e fois
             continue;
         }
 

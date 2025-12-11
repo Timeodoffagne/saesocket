@@ -1,2 +1,13 @@
-# saesocket
-la saé socket
+Jeu créé par Thomas Eugène, Hugo Sauvage, Célien Kerckhove et Timéo Doffagne.
+
+Version 0 :
+
+    Compilation serveur : gcc ./src/V0/serveur_v0.c -o ./build/serveur_v0
+    Exécution serveur : ./build/client_v0
+
+    Compilation client : gcc ./src/V0/client_v0.c -o ./build/client_v0
+    Exécution client : ./build/client_v0 *ip serveur* *port serveur*
+
+    Le client arrive sur un terminal et peut envoyer des messages au serveur.
+    À partir du moment où le client envoie "start x", le serveur lance une partie de pendu.
+    Une fois la partie finie, le client retourne sur l'écran d'accueil, et peut relancer une partie ou quitter la serveur avec "exit".

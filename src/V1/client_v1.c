@@ -60,7 +60,7 @@ void envoyerMessage(int sock, const char *message)
 
 // =====================================================
 //  FONCTION : recevoir une réponse du serveur
-//  → retourne un pointeur sur buffer statique
+//  -> retourne un pointeur sur buffer statique
 // =====================================================
 const char *recevoirMessage(int sock)
 {
@@ -93,11 +93,33 @@ void clearScreen()
 }
 void afficherLePendu(const char *state)
 {
-    FILE *file = fopen("../../assets/pendu.txt", "r");
-    if (file == NULL)
+    const char *try_paths[] = {
+        "../../assets/pendu.txt", /* when running from src/V0 */
+        "../assets/pendu.txt",    /* when running from src/ */
+        "assets/pendu.txt"        /* when running from project root */
+    };
+    FILE *file = NULL;
+    int used_index = -1;
+    for (int i = 0; i < (int)(sizeof(try_paths) / sizeof(try_paths[0])); ++i)
     {
-        perror("Erreur lors de l'ouverture du fichier pendu.txt");
+        file = fopen(try_paths[i], "r");
+        if (file)
+        {
+            used_index = i;
+            break;
+        }
+    }
+    if (!file)
+    {
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt. Chemins essayés:\n");
+        for (int i = 0; i < (int)(sizeof(try_paths) / sizeof(try_paths[0])); ++i)
+            fprintf(stderr, "  - %s\n", try_paths[i]);
         return;
+    }
+    else
+    {
+        /* optional debug info */
+        // printf("Chargement de pendu depuis : %s\n", try_paths[used_index]);
     }
 
     int stade = atoi(state);  // Convertit "0","1","2" en int
@@ -233,10 +255,52 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
     }
 
     // --- Fin du jeu ---
-    if (strcmp(reponse, "VICTOIRE") == 0)
-        printf("\n!!! Gagné !!!\n\n");
-    else
+    if (strcmp(reponse, "VICTOIRE") == 0) {
+    printf("\n!!! Gagné !!!\n\n");
+    } else {
         printf("\n!!! Perdu !!!\n\n");
+
+        FILE *file = NULL;
+        const char *paths[] = {
+            "../../assets/pendu.txt",
+            "../assets/pendu.txt",
+            "assets/pendu.txt"
+        };
+
+        // Test des trois chemins
+        for (int i = 0; i < 3; i++) {
+            file = fopen(paths[i], "r");
+            if (file != NULL) {
+                // printf("[DEBUG] Fichier trouvé : %s\n", paths[i]);
+                break;
+            }
+        }
+
+        if (file == NULL) {
+            perror("Impossible d'ouvrir pendu.txt");
+            return;
+        }
+
+        char line[256];
+        int debut = 320;
+        int fin = 352;
+
+        // Saute jusqu’à "debut"
+        for (int i = 0; i < debut; i++) {
+            if (!fgets(line, sizeof(line), file))
+                break;
+        }
+
+        // Affiche le bloc final
+        for (int i = debut; i < fin; i++) {
+            if (!fgets(line, sizeof(line), file))
+                break;
+            printf("%s", line);
+        }
+
+        fclose(file);
+    }
+
 }
 
 // =====================================================
@@ -248,7 +312,7 @@ void boucleClient(int sock, const char *ip_dest)
     while (1)
     {
         // Saisie utilisateur
-        printf("Entrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
+        printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
 
@@ -266,7 +330,6 @@ void boucleClient(int sock, const char *ip_dest)
             printf("Démarrage d'une partie de pendu V0...\n");
             jeuDuPenduV0(sock, ip_dest);
 
-            // IMPORTANT : ne pas renvoyer "start x" une 2e fois
             continue;
         }
 

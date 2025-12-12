@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
+#include <time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
@@ -13,26 +14,23 @@
 #define LG_MESSAGE 256
 #define LISTE_MOTS "../../assets/mots.txt"
 
-#define LG_MESSAGE 256
-
 typedef struct
 {
-    int destinataire;         // 1 ou 2
-    char message[LG_MESSAGE]; // message texte
+    int destinataire;
+    char message[LG_MESSAGE];
 } Packet;
 
 typedef struct
 {
-    int id;                  // 1 ou 2
-    int socket;              // socket de dialogue du client
-    struct sockaddr_in addr; // adresse IP du client
+    int id;
+    int socket;
+    struct sockaddr_in addr;
+    int essaisRestants;  // NOUVEAU: essais individuels
 } ClientData;
 
 ClientData *client1 = NULL;
 ClientData *client2 = NULL;
 
-/* --------------------------------------------------------------------------
-/*                            Création de la socket
 /* -------------------------------------------------------------------------- */
 void creationSocket(int *socketEcoute,
                     socklen_t *longueurAdresse,
@@ -73,8 +71,6 @@ void creationSocket(int *socketEcoute,
 }
 
 /* -------------------------------------------------------------------------- */
-/*                               Mot aléatoire                                */
-/* -------------------------------------------------------------------------- */
 char *creationMot()
 {
     FILE *f = fopen(LISTE_MOTS, "r");
@@ -110,200 +106,22 @@ char *creationMot()
     return mot;
 }
 
-/*-------------------------------------------------------------------------- */
-/*                          Gestion des messages client                      */
-/* ------------------------------------------------------------------------- */
-void deconnexion(int socketDialogue)
-{
-    close(socketDialogue);
-    printf("Connexion fermée.\n");
-}
-
-/*-------------------------------------------------------------------------- */
-/*                          Envoi des messages client                        */
-/* ------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
 int envoyerPacket(int sock, int destinataire, const char *msg)
 {
     Packet p;
     p.destinataire = destinataire;
-    strncpy(p.message, msg, LG_MESSAGE);
+    strncpy(p.message, msg, LG_MESSAGE - 1);
+    p.message[LG_MESSAGE - 1] = '\0';
 
     char buffer[sizeof(Packet)];
-    memcpy(buffer, &p.destinataire, sizeof(int));
+    int dest_net = htonl(p.destinataire);  // CORRECTION: conversion réseau
+    memcpy(buffer, &dest_net, sizeof(int));
     memcpy(buffer + sizeof(int), p.message, LG_MESSAGE);
 
     return send(sock, buffer, sizeof(Packet), 0);
 }
 
-/* -------------------------------------------------------------------------- */
-/*                              Jeu du pendu                                  */
-/*--------------------------------------------------------------------------- */
-int jeuDuPendu(int socketDialogue1, int socketDialogue2)
-{
-    char *motADeviner = creationMot();
-    int longueurMot = strlen(motADeviner);
-
-    char lettresDevinees[LG_MESSAGE] = {0};
-    int essaisRestants = 10;
-    int lettresTrouvees = 0;
-    int joueurCourant = 2;
-
-    char motCache[LG_MESSAGE];
-
-    printf("Nouveau jeu du pendu ! Mot = %s (%d lettres)\n", motADeviner, longueurMot);
-
-    /* 1) Le serveur confirme le début */
-    envoyerPacket(socketDialogue1, 1, "start");
-    envoyerPacket(socketDialogue2, 2, "start");
-
-    while (essaisRestants > 0 && lettresTrouvees < longueurMot)
-    {
-        /* Construction du mot caché */
-        memset(motCache, 0, LG_MESSAGE);
-
-        for (int i = 0; i < longueurMot; i++)
-        {
-            if (strchr(lettresDevinees, motADeviner[i]))
-            {
-                strncat(motCache, &motADeviner[i], 1);
-                strncat(motCache, " ", 1);
-            }
-            else
-            {
-                strcat(motCache, "_ ");
-            }
-        }
-
-        /* Envoie le mot masqué */
-        envoyerPacket(socketDialogue1, 1, motCache);
-        envoyerPacket(socketDialogue2, 2, motCache);
-
-        /* Envoie le nombre d’essais */
-        char essaisStr[8];
-        sprintf(essaisStr, "%d", essaisRestants);
-        sleep(1);
-        envoyerPacket(socketDialogue1, 1, essaisStr);
-        envoyerPacket(socketDialogue2, 2, essaisStr);
-
-        /* Réception d’une lettre */
-        char buffer[16];
-
-        int lus;
-        if (joueurCourant == 1)
-            lus = recv(socketDialogue1, buffer, sizeof(buffer), 0);
-        else
-            lus = recv(socketDialogue2, buffer, sizeof(buffer), 0);
-
-        if (lus <= 0)
-        {
-            printf("Client déconnecté.\n");
-            // Indiquer à l'appelant que le client s'est déconnecté
-            return 0;
-        }
-
-        buffer[strcspn(buffer, "\n")] = 0; // clean \n
-        char lettre = buffer[0];
-
-        printf("Lettre reçue : %c\n", lettre);
-
-        /* Lettre déjà jouée */
-        if (strchr(lettresDevinees, lettre))
-        {
-            if (joueurCourant == 1)
-            {
-                envoyerPacket(socketDialogue1, 1, "Lettre déjà devinée");
-                envoyerPacket(socketDialogue1, 2, "Lettre déjà devinée");
-            }
-            else
-            {
-                envoyerPacket(socketDialogue2, 2, "Lettre déjà devinée");
-                envoyerPacket(socketDialogue2, 1, "Lettre déjà devinée");
-            }
-            continue;
-        }
-
-        /* Ajout */
-        strncat(lettresDevinees, &lettre, 1);
-
-        /* Bonne ou mauvaise lettre ? */
-        if (strchr(motADeviner, lettre) && (essaisRestants > 0 && lettresTrouvees < longueurMot))
-        {
-            for (int i = 0; i < longueurMot; i++)
-                if (motADeviner[i] == lettre)
-                    lettresTrouvees++;
-
-            if (joueurCourant == 1)
-            {
-                envoyerPacket(socketDialogue1, 1, "Bonne lettre !");
-                envoyerPacket(socketDialogue2, 2, "Bonne lettre !");
-            }
-            else
-            {
-                envoyerPacket(socketDialogue2, 2, "Bonne lettre !");
-                envoyerPacket(socketDialogue1, 1, "Bonne lettre !");
-            }
-        }
-        else if (essaisRestants > 0 && lettresTrouvees < longueurMot)
-        {
-            essaisRestants--;
-            if (joueurCourant == 1)
-            {
-                envoyerPacket(socketDialogue1, 1, "Mauvaise lettre");
-                envoyerPacket(socketDialogue2, 2, "Mauvaise lettre");
-            }
-            else
-            {
-                envoyerPacket(socketDialogue2, 2, "Mauvaise lettre");
-                envoyerPacket(socketDialogue1, 1, "Mauvaise lettre");
-            }
-        }
-    }
-    if (joueurCourant == 1)
-    {
-        envoyerPacket(socketDialogue1, 1, "END");
-        envoyerPacket(socketDialogue2, 2, "END");
-    }
-    else
-    {
-        envoyerPacket(socketDialogue2, 2, "END");
-        envoyerPacket(socketDialogue1, 1, "END");
-    }
-    sleep(1);
-    /* Fin du jeu */
-    if (lettresTrouvees == longueurMot)
-    {
-        if (joueurCourant == 1)
-        {
-            envoyerPacket(socketDialogue1, 1, "VICTOIRE");
-            envoyerPacket(socketDialogue2, 2, "VICTOIRE");
-        }
-        else
-        {
-            envoyerPacket(socketDialogue2, 2, "VICTOIRE");
-            envoyerPacket(socketDialogue1, 1, "VICTOIRE");
-        }
-        printf("Le client %d a gagné !\n", joueurCourant);
-    }
-    else
-    {
-        if (joueurCourant == 1)
-        {
-            envoyerPacket(socketDialogue1, 1, "DEFAITE");
-            envoyerPacket(socketDialogue2, 2, "DEFAITE");
-        }
-        else
-        {
-            envoyerPacket(socketDialogue2, 2, "DEFAITE");
-            envoyerPacket(socketDialogue1, 1, "DEFAITE");
-        }
-        printf("Le client a perdu. Mot : %s\n", motADeviner);
-    }
-
-    return 1; /* partie terminée normalement, garder la connexion ouverte */
-}
-
-/* -------------------------------------------------------------------------- */
-/*                          Gestion des messages client                        */
 /* -------------------------------------------------------------------------- */
 int recevoirPacket(int socketDialogue, Packet *p)
 {
@@ -312,18 +130,15 @@ int recevoirPacket(int socketDialogue, Packet *p)
 
     int lus = recv(socketDialogue, buffer, sizeof(buffer), 0);
     if (lus <= 0)
-    {
-        return 0; // déconnexion
-    }
+        return 0;
 
-    // Décomposer le paquet
     int dest_net;
     memcpy(&dest_net, buffer, sizeof(int));
     p->destinataire = ntohl(dest_net);
 
     memcpy(p->message, buffer + sizeof(int), LG_MESSAGE);
+    p->message[LG_MESSAGE - 1] = '\0';
 
-    // Affichage debug
     struct sockaddr_in addrClient;
     socklen_t len = sizeof(addrClient);
 
@@ -337,30 +152,175 @@ int recevoirPacket(int socketDialogue, Packet *p)
     return lus;
 }
 
-int traiterPacket(int socketDialogue1, int socketDialogue2, int identifiantClient)
+/* -------------------------------------------------------------------------- */
+/*                        JEU DU PENDU (CORRIGÉ)                              */
+/* -------------------------------------------------------------------------- */
+int jeuDuPendu(ClientData *c1, ClientData *c2)
+{
+    if (!c1 || !c2) return 0;
+
+    char *motADeviner = creationMot();
+    int longueurMot = strlen(motADeviner);
+
+    char lettresDevinees[LG_MESSAGE] = {0};
+    c1->essaisRestants = 10;
+    c2->essaisRestants = 10;
+    int lettresTrouvees = 0;
+    int joueurCourant = 1;  // commence avec joueur 1
+
+    char motCache[LG_MESSAGE];
+
+    printf("\n=== Nouvelle partie ===\n");
+    printf("Mot à deviner : %s (%d lettres)\n", motADeviner, longueurMot);
+
+    // Confirmation de démarrage
+    envoyerPacket(c1->socket, c1->id, "start");
+    envoyerPacket(c2->socket, c2->id, "start");
+
+    while (lettresTrouvees < longueurMot && 
+           c1->essaisRestants > 0 && 
+           c2->essaisRestants > 0)
+    {
+        // Construction du mot masqué
+        memset(motCache, 0, LG_MESSAGE);
+        for (int i = 0; i < longueurMot; i++)
+        {
+            if (strchr(lettresDevinees, motADeviner[i]))
+            {
+                strncat(motCache, &motADeviner[i], 1);
+                strncat(motCache, " ", 1);
+            }
+            else
+            {
+                strcat(motCache, "_ ");
+            }
+        }
+
+        // Envoie le mot masqué avec l'ID du joueur courant
+        envoyerPacket(c1->socket, joueurCourant, motCache);
+        envoyerPacket(c2->socket, joueurCourant, motCache);
+
+        // Envoie les essais restants individuels
+        char essais1[8], essais2[8];
+        sprintf(essais1, "%d", c1->essaisRestants);
+        sprintf(essais2, "%d", c2->essaisRestants);
+        
+        envoyerPacket(c1->socket, c1->id, essais1);
+        envoyerPacket(c2->socket, c2->id, essais2);
+
+        // Réception de la lettre du joueur courant
+        Packet p;
+        int lus;
+        ClientData *joueur = (joueurCourant == 1) ? c1 : c2;
+        
+        lus = recevoirPacket(joueur->socket, &p);
+        if (lus <= 0)
+        {
+            printf("Client %d déconnecté.\n", joueurCourant);
+            return 0;
+        }
+
+        char lettre = p.message[0];
+        printf("Joueur %d joue : '%c'\n", joueurCourant, lettre);
+
+        // Lettre déjà devinée
+        if (strchr(lettresDevinees, lettre))
+        {
+            envoyerPacket(c1->socket, joueurCourant, "Lettre déjà devinée");
+            envoyerPacket(c2->socket, joueurCourant, "Lettre déjà devinée");
+            continue;
+        }
+
+        // Ajout de la lettre
+        strncat(lettresDevinees, &lettre, 1);
+
+        // Vérification : bonne ou mauvaise lettre
+        if (strchr(motADeviner, lettre))
+        {
+            // Bonne lettre
+            for (int i = 0; i < longueurMot; i++)
+            {
+                if (motADeviner[i] == lettre)
+                    lettresTrouvees++;
+            }
+            envoyerPacket(c1->socket, joueurCourant, "Bonne lettre !");
+            envoyerPacket(c2->socket, joueurCourant, "Bonne lettre !");
+            printf("→ Bonne lettre ! (%d/%d trouvées)\n", lettresTrouvees, longueurMot);
+        }
+        else
+        {
+            // Mauvaise lettre
+            joueur->essaisRestants--;
+            envoyerPacket(c1->socket, joueurCourant, "Mauvaise lettre");
+            envoyerPacket(c2->socket, joueurCourant, "Mauvaise lettre");
+            printf("→ Mauvaise lettre ! (reste %d essais)\n", joueur->essaisRestants);
+        }
+
+        // Alternance des joueurs
+        joueurCourant = (joueurCourant == 1) ? 2 : 1;
+    }
+
+    // Fin de partie : envoi de END puis résultat
+    envoyerPacket(c1->socket, 1, "END");
+    envoyerPacket(c2->socket, 2, "END");
+
+    sleep(1);
+
+    // Déterminer le gagnant
+    if (lettresTrouvees == longueurMot)
+    {
+        // Le dernier joueur qui a trouvé la dernière lettre gagne
+        joueurCourant = (joueurCourant == 1) ? 2 : 1;  // retour au dernier joueur
+        printf("→ Joueur %d a gagné !\n", joueurCourant);
+        
+        if (joueurCourant == 1)
+        {
+            envoyerPacket(c1->socket, 1, "VICTOIRE");
+            envoyerPacket(c2->socket, 2, "DEFAITE");
+        }
+        else
+        {
+            envoyerPacket(c1->socket, 1, "DEFAITE");
+            envoyerPacket(c2->socket, 2, "VICTOIRE");
+        }
+    }
+    else
+    {
+        // Les deux ont perdu (plus d'essais)
+        printf("→ Les deux joueurs ont perdu ! Mot : %s\n", motADeviner);
+        envoyerPacket(c1->socket, 1, "DEFAITE");
+        envoyerPacket(c2->socket, 2, "DEFAITE");
+    }
+
+    return 1;
+}
+
+/* -------------------------------------------------------------------------- */
+int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
 {
     Packet p;
-    int lus = 0;
-    if (identifiantClient == 1)
-    {
-        lus = recevoirPacket(socketDialogue1, &p);
-    }
-    else if (identifiantClient == 2)
-    {
-        lus = recevoirPacket(socketDialogue2, &p);
-    }
+    ClientData *joueur = (identifiantClient == 1) ? c1 : c2;
+    
+    if (!joueur) return 0;
+    
+    int lus = recevoirPacket(joueur->socket, &p);
     if (lus <= 0)
-        return 0; // client déconnecté
+        return 0;
 
-    printf("[SERVEUR] Dest=%d | Message=%s\n", p.destinataire, p.message);
+    printf("[SERVEUR] Client %d | Message=%s\n", identifiantClient, p.message);
 
-    // Commandes spéciales du client
     if (strcmp(p.message, "start") == 0)
     {
-        printf("-> Commande start reçue.\n");
+        printf("→ Commande start reçue du client %d.\n", identifiantClient);
 
-        // Démarrage du jeu solo existant
-        int res = jeuDuPendu(socketDialogue1, socketDialogue2);
+        if (!c1 || !c2)
+        {
+            envoyerPacket(joueur->socket, identifiantClient, 
+                         "Erreur: Il faut 2 joueurs connectés");
+            return lus;
+        }
+
+        int res = jeuDuPendu(c1, c2);
         if (res == 0)
             return 0;
 
@@ -368,41 +328,24 @@ int traiterPacket(int socketDialogue1, int socketDialogue2, int identifiantClien
     }
     else if (strcmp(p.message, "exit") == 0)
     {
-        printf("Client demande une fermeture.\n");
-        if (identifiantClient == 1)
-        {
-            envoyerPacket(socketDialogue1, p.destinataire, "Au revoir");
-            close(socketDialogue1);
-        }
-        else if (identifiantClient == 2)
-        {
-            envoyerPacket(socketDialogue2, p.destinataire, "Au revoir");
-            close(socketDialogue2);
-        }
+        printf("Client %d demande une fermeture.\n", identifiantClient);
+        envoyerPacket(joueur->socket, identifiantClient, "Au revoir");
         return 0;
     }
     else
     {
-        if (identifiantClient == 1)
-            envoyerPacket(socketDialogue1, p.destinataire, "Commande inconnue");
-        else if (identifiantClient == 2)
-            envoyerPacket(socketDialogue2, p.destinataire, "Commande inconnue");
+        envoyerPacket(joueur->socket, identifiantClient, "Commande inconnue");
     }
+    
     return lus;
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              Boucle principale                             */
-/* -------------------------------------------------------------------------- */
 void boucleServeur(int socketEcoute)
 {
-    int socketDialogue1 = -1;
-    int socketDialogue2 = -1;
     socklen_t longueurAdresse = sizeof(struct sockaddr_in);
     struct sockaddr_in clientAddr;
 
-    /* pointers persistants pour infos client */
-    /* client1 / client2 sont des globals dans ton code */
     client1 = NULL;
     client2 = NULL;
 
@@ -414,52 +357,84 @@ void boucleServeur(int socketEcoute)
         int maxfd = socketEcoute;
         FD_SET(socketEcoute, &readfds);
 
-        if (client1 && client1->socket >= 0) {
+        if (client1 && client1->socket >= 0)
+        {
             FD_SET(client1->socket, &readfds);
-            if (client1->socket > maxfd) maxfd = client1->socket;
+            if (client1->socket > maxfd)
+                maxfd = client1->socket;
         }
-        if (client2 && client2->socket >= 0) {
+        if (client2 && client2->socket >= 0)
+        {
             FD_SET(client2->socket, &readfds);
-            if (client2->socket > maxfd) maxfd = client2->socket;
+            if (client2->socket > maxfd)
+                maxfd = client2->socket;
         }
 
         FD_SET(STDIN_FILENO, &readfds);
-        if (STDIN_FILENO > maxfd) maxfd = STDIN_FILENO;
+        if (STDIN_FILENO > maxfd)
+            maxfd = STDIN_FILENO;
 
-        /* select attend une activité : nouvelle connexion, données clients, ou stdin */
         int ready = select(maxfd + 1, &readfds, NULL, NULL, NULL);
-        if (ready < 0) {
-            if (errno == EINTR) continue;
+        if (ready < 0)
+        {
+            if (errno == EINTR)
+                continue;
             perror("select");
             break;
         }
 
-        /* --- nouvelle connexion entrante ? --- */
-        if (FD_ISSET(socketEcoute, &readfds)) {
+        // Nouvelle connexion
+        if (FD_ISSET(socketEcoute, &readfds))
+        {
             int s = accept(socketEcoute, (struct sockaddr *)&clientAddr, &longueurAdresse);
-            if (s < 0) {
+            if (s < 0)
+            {
                 perror("accept");
-            } else {
-                /* attribuer au premier slot libre */
-                if (!client1) {
+            }
+            else
+            {
+                if (!client1)
+                {
                     ClientData *c = malloc(sizeof(ClientData));
-                    if (!c) { perror("malloc"); close(s); }
-                    else {
-                        c->id = 1; c->socket = s; c->addr = clientAddr;
+                    if (!c)
+                    {
+                        perror("malloc");
+                        close(s);
+                    }
+                    else
+                    {
+                        c->id = 1;
+                        c->socket = s;
+                        c->addr = clientAddr;
+                        c->essaisRestants = 10;
                         client1 = c;
                         printf("Client 1 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        envoyerPacket(s, 1, "Bienvenue client 1");
                     }
-                } else if (!client2) {
+                }
+                else if (!client2)
+                {
                     ClientData *c = malloc(sizeof(ClientData));
-                    if (!c) { perror("malloc"); close(s); }
-                    else {
-                        c->id = 2; c->socket = s; c->addr = clientAddr;
+                    if (!c)
+                    {
+                        perror("malloc");
+                        close(s);
+                    }
+                    else
+                    {
+                        c->id = 2;
+                        c->socket = s;
+                        c->addr = clientAddr;
+                        c->essaisRestants = 10;
                         client2 = c;
                         printf("Client 2 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        envoyerPacket(s, 2, "Bienvenue client 2");
                     }
-                } else {
-                    /* trop de clients : on refuse proprement */
-                    printf("Serveur plein : refus du client %s\n", inet_ntoa(clientAddr.sin_addr));
+                }
+                else
+                {
+                    printf("Serveur plein : refus du client %s\n", 
+                           inet_ntoa(clientAddr.sin_addr));
                     char *msg = "Serveur plein\n";
                     send(s, msg, strlen(msg), 0);
                     close(s);
@@ -467,12 +442,12 @@ void boucleServeur(int socketEcoute)
             }
         }
 
-        /* --- activité sur client1 ? --- */
-        if (client1 && client1->socket >= 0 && FD_ISSET(client1->socket, &readfds)) {
-            int lus = traiterPacket(client1->socket,
-                                    client2 ? client2->socket : -1,
-                                    1);
-            if (lus <= 0) {
+        // Activité sur client1
+        if (client1 && client1->socket >= 0 && FD_ISSET(client1->socket, &readfds))
+        {
+            int lus = traiterPacket(client1, client2, 1);
+            if (lus <= 0)
+            {
                 printf("Client 1 (%s) déconnecté.\n", inet_ntoa(client1->addr.sin_addr));
                 close(client1->socket);
                 free(client1);
@@ -480,12 +455,12 @@ void boucleServeur(int socketEcoute)
             }
         }
 
-        /* --- activité sur client2 ? --- */
-        if (client2 && client2->socket >= 0 && FD_ISSET(client2->socket, &readfds)) {
-            int lus = traiterPacket(client1 ? client1->socket : -1,
-                                    client2->socket,
-                                    2);
-            if (lus <= 0) {
+        // Activité sur client2
+        if (client2 && client2->socket >= 0 && FD_ISSET(client2->socket, &readfds))
+        {
+            int lus = traiterPacket(client1, client2, 2);
+            if (lus <= 0)
+            {
                 printf("Client 2 (%s) déconnecté.\n", inet_ntoa(client2->addr.sin_addr));
                 close(client2->socket);
                 free(client2);
@@ -493,47 +468,66 @@ void boucleServeur(int socketEcoute)
             }
         }
 
-        /* --- activité sur stdin (opérateur serveur) ? --- */
-        if (FD_ISSET(STDIN_FILENO, &readfds)) {
+        // Stdin
+        if (FD_ISSET(STDIN_FILENO, &readfds))
+        {
             char line[LG_MESSAGE];
-            if (fgets(line, sizeof(line), stdin) == NULL) {
-                /* EOF sur stdin : on continue mais on ne plante pas */
+            if (fgets(line, sizeof(line), stdin) == NULL)
+            {
                 printf("stdin fermé (EOF)\n");
-            } else {
+            }
+            else
+            {
                 line[strcspn(line, "\n")] = 0;
-                if (strcmp(line, "exit") == 0) {
+                if (strcmp(line, "exit") == 0)
+                {
                     printf("Arrêt serveur demandé par stdin.\n");
-                    /* fermer les clients et sortir */
-                    if (client1) { close(client1->socket); free(client1); client1 = NULL; }
-                    if (client2) { close(client2->socket); free(client2); client2 = NULL; }
+                    if (client1)
+                    {
+                        close(client1->socket);
+                        free(client1);
+                        client1 = NULL;
+                    }
+                    if (client2)
+                    {
+                        close(client2->socket);
+                        free(client2);
+                        client2 = NULL;
+                    }
                     break;
                 }
-                /* Broadcast simple : envoi manuel au(x) client(s) connectés */
-                if (client1) envoyerPacket(client1->socket, client1->id, line);
-                if (client2) envoyerPacket(client2->socket, client2->id, line);
+                if (client1)
+                    envoyerPacket(client1->socket, client1->id, line);
+                if (client2)
+                    envoyerPacket(client2->socket, client2->id, line);
             }
         }
+    }
 
-        /* boucle reprend automatiquement */
-    } /* fin while(1) */
-
-    /* nettoyage final */
-    if (client1) { close(client1->socket); free(client1); client1 = NULL; }
-    if (client2) { close(client2->socket); free(client2); client2 = NULL; }
+    if (client1)
+    {
+        close(client1->socket);
+        free(client1);
+        client1 = NULL;
+    }
+    if (client2)
+    {
+        close(client2->socket);
+        free(client2);
+        client2 = NULL;
+    }
 }
 
-
-/* -------------------------------------------------------------------------- */
-/*                                   MAIN                                      */
 /* -------------------------------------------------------------------------- */
 int main()
 {
+    srand(time(NULL));  // Initialiser le générateur aléatoire
+    
     int socketEcoute;
     socklen_t longueurAdresse;
     struct sockaddr_in pointDeRencontreLocal;
 
     creationSocket(&socketEcoute, &longueurAdresse, &pointDeRencontreLocal);
-
     boucleServeur(socketEcoute);
 
     close(socketEcoute);

@@ -1,0 +1,10 @@
+Liste de mots réduite pour le jeu du pendu
+ordinateur
+programmation
+reseau
+socket
+serveur
+client
+jeu
+pendu
+mot

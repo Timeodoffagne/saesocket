@@ -4,11 +4,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <string.h>
-#include <time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <sys/select.h>
+#include <time.h>
 
 #define PORT 5000
 #define LG_MESSAGE 256
@@ -25,7 +25,8 @@ typedef struct
     int id;
     int socket;
     struct sockaddr_in addr;
-    int essaisRestants;  // NOUVEAU: essais individuels
+    int essaisRestants;
+    int pret;  // NOUVEAU: 0 = pas prêt, 1 = prêt à jouer
 } ClientData;
 
 ClientData *client1 = NULL;
@@ -109,17 +110,24 @@ char *creationMot()
 /* -------------------------------------------------------------------------- */
 int envoyerPacket(int sock, int destinataire, const char *msg)
 {
+    if (sock < 0) return -1;
+    
     Packet p;
     p.destinataire = destinataire;
     strncpy(p.message, msg, LG_MESSAGE - 1);
     p.message[LG_MESSAGE - 1] = '\0';
 
     char buffer[sizeof(Packet)];
-    int dest_net = htonl(p.destinataire);  // CORRECTION: conversion réseau
+    int dest_net = htonl(p.destinataire);
     memcpy(buffer, &dest_net, sizeof(int));
     memcpy(buffer + sizeof(int), p.message, LG_MESSAGE);
 
-    return send(sock, buffer, sizeof(Packet), 0);
+    int sent = send(sock, buffer, sizeof(Packet), 0);
+    if (sent > 0)
+    {
+        printf("[ENVOI] Socket %d | Dest=%d | Message='%s'\n", sock, destinataire, msg);
+    }
+    return sent;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -166,7 +174,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
     c1->essaisRestants = 10;
     c2->essaisRestants = 10;
     int lettresTrouvees = 0;
-    int joueurCourant = 1;  // commence avec joueur 1
+    int joueurCourant = 1;
 
     char motCache[LG_MESSAGE];
 
@@ -216,7 +224,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
         lus = recevoirPacket(joueur->socket, &p);
         if (lus <= 0)
         {
-            printf("Client %d déconnecté.\n", joueurCourant);
+            printf("Client %d déconnecté pendant la partie.\n", joueurCourant);
             return 0;
         }
 
@@ -270,7 +278,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
     if (lettresTrouvees == longueurMot)
     {
         // Le dernier joueur qui a trouvé la dernière lettre gagne
-        joueurCourant = (joueurCourant == 1) ? 2 : 1;  // retour au dernier joueur
+        joueurCourant = (joueurCourant == 1) ? 2 : 1;
         printf("→ Joueur %d a gagné !\n", joueurCourant);
         
         if (joueurCourant == 1)
@@ -292,6 +300,10 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
         envoyerPacket(c2->socket, 2, "DEFAITE");
     }
 
+    // Réinitialiser l'état "prêt"
+    c1->pret = 0;
+    c2->pret = 0;
+
     return 1;
 }
 
@@ -300,6 +312,7 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
 {
     Packet p;
     ClientData *joueur = (identifiantClient == 1) ? c1 : c2;
+    ClientData *adversaire = (identifiantClient == 1) ? c2 : c1;
     
     if (!joueur) return 0;
     
@@ -307,19 +320,38 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
     if (lus <= 0)
         return 0;
 
-    printf("[SERVEUR] Client %d | Message=%s\n", identifiantClient, p.message);
+    printf("[SERVEUR] Client %d | Message='%s'\n", identifiantClient, p.message);
 
+    // Commande START : matchmaking
     if (strcmp(p.message, "start") == 0)
     {
-        printf("→ Commande start reçue du client %d.\n", identifiantClient);
+        printf("→ Client %d veut jouer.\n", identifiantClient);
 
-        if (!c1 || !c2)
+        // Vérifier que l'adversaire est connecté
+        if (!adversaire)
         {
             envoyerPacket(joueur->socket, identifiantClient, 
-                         "Erreur: Il faut 2 joueurs connectés");
+                         "En attente d'un adversaire...");
+            printf("→ Adversaire non connecté, en attente.\n");
             return lus;
         }
 
+        // Marquer ce joueur comme prêt
+        joueur->pret = 1;
+        printf("→ Client %d marqué comme prêt.\n", identifiantClient);
+
+        // Si l'adversaire n'est pas encore prêt
+        if (!adversaire->pret)
+        {
+            envoyerPacket(joueur->socket, identifiantClient, 
+                         "En attente de l'adversaire...");
+            printf("→ En attente que client %d tape 'start'.\n", adversaire->id);
+            return lus;
+        }
+
+        // Les deux joueurs sont prêts : lancer la partie
+        printf("→ Les deux joueurs sont prêts ! Lancement de la partie...\n");
+        
         int res = jeuDuPendu(c1, c2);
         if (res == 0)
             return 0;
@@ -334,7 +366,10 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
     }
     else
     {
-        envoyerPacket(joueur->socket, identifiantClient, "Commande inconnue");
+        // Message inconnu
+        char reponse[LG_MESSAGE];
+        snprintf(reponse, LG_MESSAGE, "Echo: %s", p.message);
+        envoyerPacket(joueur->socket, identifiantClient, reponse);
     }
     
     return lus;
@@ -407,9 +442,10 @@ void boucleServeur(int socketEcoute)
                         c->socket = s;
                         c->addr = clientAddr;
                         c->essaisRestants = 10;
+                        c->pret = 0;
                         client1 = c;
-                        printf("Client 1 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
-                        envoyerPacket(s, 1, "Bienvenue client 1");
+                        printf("✓ Client 1 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        envoyerPacket(s, 1, "Bienvenue client 1 ! Tapez 'start' pour jouer.");
                     }
                 }
                 else if (!client2)
@@ -426,14 +462,15 @@ void boucleServeur(int socketEcoute)
                         c->socket = s;
                         c->addr = clientAddr;
                         c->essaisRestants = 10;
+                        c->pret = 0;
                         client2 = c;
-                        printf("Client 2 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
-                        envoyerPacket(s, 2, "Bienvenue client 2");
+                        printf("✓ Client 2 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        envoyerPacket(s, 2, "Bienvenue client 2 ! Tapez 'start' pour jouer.");
                     }
                 }
                 else
                 {
-                    printf("Serveur plein : refus du client %s\n", 
+                    printf("✗ Serveur plein : refus du client %s\n", 
                            inet_ntoa(clientAddr.sin_addr));
                     char *msg = "Serveur plein\n";
                     send(s, msg, strlen(msg), 0);
@@ -448,7 +485,7 @@ void boucleServeur(int socketEcoute)
             int lus = traiterPacket(client1, client2, 1);
             if (lus <= 0)
             {
-                printf("Client 1 (%s) déconnecté.\n", inet_ntoa(client1->addr.sin_addr));
+                printf("✗ Client 1 (%s) déconnecté.\n", inet_ntoa(client1->addr.sin_addr));
                 close(client1->socket);
                 free(client1);
                 client1 = NULL;
@@ -461,7 +498,7 @@ void boucleServeur(int socketEcoute)
             int lus = traiterPacket(client1, client2, 2);
             if (lus <= 0)
             {
-                printf("Client 2 (%s) déconnecté.\n", inet_ntoa(client2->addr.sin_addr));
+                printf("✗ Client 2 (%s) déconnecté.\n", inet_ntoa(client2->addr.sin_addr));
                 close(client2->socket);
                 free(client2);
                 client2 = NULL;
@@ -496,6 +533,7 @@ void boucleServeur(int socketEcoute)
                     }
                     break;
                 }
+                // Broadcast aux clients
                 if (client1)
                     envoyerPacket(client1->socket, client1->id, line);
                 if (client2)
@@ -521,7 +559,7 @@ void boucleServeur(int socketEcoute)
 /* -------------------------------------------------------------------------- */
 int main()
 {
-    srand(time(NULL));  // Initialiser le générateur aléatoire
+    srand(time(NULL));
     
     int socketEcoute;
     socklen_t longueurAdresse;

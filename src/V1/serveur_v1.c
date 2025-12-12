@@ -135,25 +135,6 @@ int envoyerPacket(int sock, int destinataire, const char *msg)
     return send(sock, buffer, sizeof(Packet), 0);
 }
 
-/*-------------------------------------------------------------------------- */
-/*                      Réception des messages client                        */
-/* ------------------------------------------------------------------------- */
-int recevoirPacket(int sock, Packet *p)
-{
-    char buffer[sizeof(int) + LG_MESSAGE];
-    int rec = recv(sock, buffer, sizeof(buffer), 0);
-
-    if (rec <= 0)
-        return rec;
-
-    int dest_net;
-    memcpy(&dest_net, buffer, sizeof(int));
-    p->destinataire = ntohl(dest_net);
-
-    memcpy(p->message, buffer + sizeof(int), LG_MESSAGE);
-
-    return rec;
-}
 
 /* -------------------------------------------------------------------------- */
 /*                              Jeu du pendu                                  */
@@ -343,7 +324,6 @@ void boucleServeur(int socketEcoute)
 
     while (1)
     {
-
         printf("En attente d’un client...\n");
 
         socketDialogue = accept(socketEcoute,
@@ -356,10 +336,12 @@ void boucleServeur(int socketEcoute)
             continue;
         }
 
+        /* ---- Création structure pour ce client ---- */
         ClientData *cd = malloc(sizeof(ClientData));
         cd->socket = socketDialogue;
         cd->addr = client;
 
+        /* ---- Attribution d’un ID de client (1 ou 2) ---- */
         if (client1 == NULL)
         {
             cd->id = 1;
@@ -380,11 +362,11 @@ void boucleServeur(int socketEcoute)
             continue;
         }
 
+        /* ============================
+           BOUCLE D’ÉCOUTE DU CLIENT
+           ============================ */
         char messageAEnvoyer[LG_MESSAGE];
 
-        /* Boucle principale : utilisons select() pour surveiller la socket client et stdin.
-           Ainsi, si le client ferme son terminal (FIN), la socket devient lisible et
-           recv() retournera 0 -> on détecte la déconnexion et on revient en attente. */
         while (1)
         {
             fd_set readfds;
@@ -392,46 +374,41 @@ void boucleServeur(int socketEcoute)
             FD_SET(socketDialogue, &readfds);
             FD_SET(STDIN_FILENO, &readfds);
 
-            int maxfd = socketDialogue > STDIN_FILENO ? socketDialogue : STDIN_FILENO;
+            int maxfd = (socketDialogue > STDIN_FILENO) ? socketDialogue : STDIN_FILENO;
 
             int ready = select(maxfd + 1, &readfds, NULL, NULL, NULL);
             if (ready < 0)
             {
                 perror("select");
-                close(socketDialogue);
                 break;
             }
 
-            /* Si la socket est lisible : reception d'un message ou déconnexion */
+            /* --------- Client envoie quelque chose --------- */
             if (FD_ISSET(socketDialogue, &readfds))
             {
-                int lus = recevoirMessage(socketDialogue);
+                int lus = traiterPacket(socketDialogue); // nouvelle fonction version paquet
 
                 if (lus == 0)
                 {
-                    printf("Client %s déconnecté.\n", inet_ntoa(client.sin_addr));
-                    close(socketDialogue);
-                    break; // Retour à "En attente d'un client..."
-                }
+                    printf("Client %d (%s) déconnecté.\n",
+                        cd->id, inet_ntoa(client.sin_addr));
 
-                if (lus < 0)
-                {
-                    perror("recv");
+                    /* libération du slot du client */
+                    if (cd->id == 1) client1 = NULL;
+                    if (cd->id == 2) client2 = NULL;
+
                     close(socketDialogue);
+                    free(cd);
                     break;
                 }
-
-                /* continuer la boucle pour éventuellement lire stdin ou nouvelle donnée */
             }
 
-            /* Si stdin est lisible : l'opérateur veut envoyer un message */
+            /* --------- Entrée clavier côté serveur --------- */
             if (FD_ISSET(STDIN_FILENO, &readfds))
             {
                 if (fgets(messageAEnvoyer, LG_MESSAGE, stdin) == NULL)
                 {
-                    /* EOF sur stdin : on ferme la connexion actuelle et on attend un nouveau client */
-                    printf("stdin fermé. Fermeture de la connexion avec %s\n", inet_ntoa(client.sin_addr));
-                    close(socketDialogue);
+                    printf("stdin fermé. Déconnexion client.\n");
                     break;
                 }
 
@@ -439,16 +416,23 @@ void boucleServeur(int socketEcoute)
 
                 if (strcmp(messageAEnvoyer, "exit") == 0)
                 {
-                    printf("Fermeture de la connexion avec %s\n", inet_ntoa(client.sin_addr));
+                    printf("Fermeture de la connexion avec client %d\n", cd->id);
                     close(socketDialogue);
+
+                    if (cd->id == 1) client1 = NULL;
+                    if (cd->id == 2) client2 = NULL;
+
+                    free(cd);
                     break;
                 }
 
-                envoyerMessage(socketDialogue, messageAEnvoyer);
+                /* Envoi manuel */
+                envoyerPacket(socketDialogue, cd->id, messageAEnvoyer);
             }
         }
     }
 }
+
 
 /* -------------------------------------------------------------------------- */
 /*                                   MAIN                                      */

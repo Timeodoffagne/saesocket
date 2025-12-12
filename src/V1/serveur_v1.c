@@ -13,10 +13,27 @@
 #define LG_MESSAGE 256
 #define LISTE_MOTS "../../assets/mots.txt"
 
+#define LG_MESSAGE 256
+
+typedef struct
+{
+    int destinataire;         // 1 ou 2
+    char message[LG_MESSAGE]; // message texte
+} Packet;
+
+typedef struct
+{
+    int id;                  // 1 ou 2
+    int socket;              // socket de dialogue du client
+    struct sockaddr_in addr; // adresse IP du client
+} ClientData;
+
+ClientData *client1 = NULL;
+ClientData *client2 = NULL;
+
 /* --------------------------------------------------------------------------
 /*                            Création de la socket
 /* -------------------------------------------------------------------------- */
-
 void creationSocket(int *socketEcoute,
                     socklen_t *longueurAdresse,
                     struct sockaddr_in *pointDeRencontreLocal)
@@ -56,9 +73,8 @@ void creationSocket(int *socketEcoute,
 }
 
 /* -------------------------------------------------------------------------- */
-/*                               Mot aléatoire                                 */
+/*                               Mot aléatoire                                */
 /* -------------------------------------------------------------------------- */
-
 char *creationMot()
 {
     FILE *f = fopen(LISTE_MOTS, "r");
@@ -94,22 +110,54 @@ char *creationMot()
     return mot;
 }
 
+/*-------------------------------------------------------------------------- */
+/*                          Gestion des messages client                      */
+/* ------------------------------------------------------------------------- */
 void deconnexion(int socketDialogue)
 {
     close(socketDialogue);
     printf("Connexion fermée.\n");
 }
 
-void envoyerMessage(int socketDialogue, const char *message)
+/*-------------------------------------------------------------------------- */
+/*                          Envoi des messages client                        */
+/* ------------------------------------------------------------------------- */
+int envoyerPacket(int sock, int destinataire, const char *msg)
 {
-    int nb = send(socketDialogue, message, strlen(message), 0);
-    if (nb < 0)
-    {
-        perror("send");
-        exit(EXIT_FAILURE);
-    }
+    Packet p;
+    p.destinataire = destinataire;
+    strncpy(p.message, msg, LG_MESSAGE);
+
+    char buffer[sizeof(Packet)];
+    memcpy(buffer, &p.destinataire, sizeof(int));
+    memcpy(buffer + sizeof(int), p.message, LG_MESSAGE);
+
+    return send(sock, buffer, sizeof(Packet), 0);
 }
 
+/*-------------------------------------------------------------------------- */
+/*                      Réception des messages client                        */
+/* ------------------------------------------------------------------------- */
+int recevoirPacket(int sock, Packet *p)
+{
+    char buffer[sizeof(int) + LG_MESSAGE];
+    int rec = recv(sock, buffer, sizeof(buffer), 0);
+
+    if (rec <= 0)
+        return rec;
+
+    int dest_net;
+    memcpy(&dest_net, buffer, sizeof(int));
+    p->destinataire = ntohl(dest_net);
+
+    memcpy(p->message, buffer + sizeof(int), LG_MESSAGE);
+
+    return rec;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              Jeu du pendu                                  */
+/*--------------------------------------------------------------------------- */
 int jeuDuPendu(int socketDialogue)
 {
     char *motADeviner = creationMot();
@@ -215,59 +263,70 @@ int jeuDuPendu(int socketDialogue)
 /* -------------------------------------------------------------------------- */
 /*                          Gestion des messages client                        */
 /* -------------------------------------------------------------------------- */
-int recevoirMessage(int socketDialogue)
+int recevoirPacket(int socketDialogue, Packet *p)
 {
-    char messageRecu[LG_MESSAGE];
-    memset(messageRecu, 0, LG_MESSAGE);
+    char buffer[sizeof(int) + LG_MESSAGE];
+    memset(buffer, 0, sizeof(buffer));
 
-    int lus = recv(socketDialogue, messageRecu, LG_MESSAGE, 0);
-
+    int lus = recv(socketDialogue, buffer, sizeof(buffer), 0);
     if (lus <= 0)
     {
-        return 0; // le client s'est déconnecté
+        return 0; // déconnexion
     }
 
-    // Récupération de l'adresse IP du client
+    // Décomposer le paquet
+    int dest_net;
+    memcpy(&dest_net, buffer, sizeof(int));
+    p->destinataire = ntohl(dest_net);
+
+    memcpy(p->message, buffer + sizeof(int), LG_MESSAGE);
+
+    // Affichage debug
     struct sockaddr_in addrClient;
     socklen_t len = sizeof(addrClient);
 
-    if (getpeername(socketDialogue, (struct sockaddr *)&addrClient, &len) == -1)
+    if (getpeername(socketDialogue, (struct sockaddr *)&addrClient, &len) != -1)
     {
-        perror("getpeername");
-        return lus;
+        char *ipClient = inet_ntoa(addrClient.sin_addr);
+        printf("[RECU] De %s | Dest=%d | Message='%s'\n",
+               ipClient, p->destinataire, p->message);
     }
 
-    char *ipClient = inet_ntoa(addrClient.sin_addr);
+    return lus;
+}
 
-    printf("%s a envoyé : %s (%d octets)\n", ipClient, messageRecu, lus);
+int traiterPacket(int socketDialogue)
+{
+    Packet p;
+    int lus = recevoirPacket(socketDialogue, &p);
 
-    /* Gestion des commandes :
-       - "start x" : démarre le jeu (comportement existant)
-       - "exit"    : le client demande la fermeture -> on ferme côté serveur
-       - autre     : on informe le client que ce n'est pas une commande */
-    if (strcmp(messageRecu, "start x") == 0)
+    if (lus <= 0)
+        return 0; // client déconnecté
+
+    printf("[SERVEUR] Dest=%d | Message=%s\n", p.destinataire, p.message);
+
+    // Commandes spéciales du client
+    if (strcmp(p.message, "start x") == 0)
     {
-        printf("Commande spéciale reçue : démarrage du jeu.\n");
-        /* Lance le jeu ; si le client se déconnecte pendant la partie, propager 0 */
+        printf("-> Commande start x reçue.\n");
+
+        // Démarrage du jeu solo existant
         int res = jeuDuPendu(socketDialogue);
         if (res == 0)
-        {
-            /* le client s'est déconnecté pendant la partie */
             return 0;
-        }
-        /* partie terminée normalement : ne pas fermer la socket, permettre relance */
+
         return lus;
     }
-    else if (strcmp(messageRecu, "exit") == 0)
+    else if (strcmp(p.message, "exit") == 0)
     {
-        printf("Client %s a demandé la fermeture.\n", ipClient);
-        envoyerMessage(socketDialogue, "Au revoir");
+        printf("Client demande une fermeture.\n");
+        envoyerPacket(socketDialogue, p.destinataire, "Au revoir");
         close(socketDialogue);
         return 0;
     }
     else
     {
-        envoyerMessage(socketDialogue, "Commande inconnue. Envoyez 'start x' ou 'exit'.");
+        envoyerPacket(socketDialogue, p.destinataire, "Commande inconnue");
     }
 
     return lus;
@@ -297,7 +356,29 @@ void boucleServeur(int socketEcoute)
             continue;
         }
 
-        printf("Connexion de %s\n", inet_ntoa(client.sin_addr));
+        ClientData *cd = malloc(sizeof(ClientData));
+        cd->socket = socketDialogue;
+        cd->addr = client;
+
+        if (client1 == NULL)
+        {
+            cd->id = 1;
+            client1 = cd;
+            printf("Client 1 connecté : %s\n", inet_ntoa(client.sin_addr));
+        }
+        else if (client2 == NULL)
+        {
+            cd->id = 2;
+            client2 = cd;
+            printf("Client 2 connecté : %s\n", inet_ntoa(client.sin_addr));
+        }
+        else
+        {
+            printf("Serveur plein : refus du client %s\n", inet_ntoa(client.sin_addr));
+            close(socketDialogue);
+            free(cd);
+            continue;
+        }
 
         char messageAEnvoyer[LG_MESSAGE];
 

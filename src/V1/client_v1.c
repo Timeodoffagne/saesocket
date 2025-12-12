@@ -7,6 +7,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#define LG_MESSAGE 256
+
+typedef struct
+{
+    int destinataire;         // 1 ou 2
+    char message[LG_MESSAGE]; // message texte
+} Packet;
+
 // =====================================================
 //  FONCTION : création + connexion socket
 // =====================================================
@@ -44,57 +52,57 @@ int creationDeSocket(const char *ip_dest, int port_dest)
 }
 
 // =====================================================
-//  FONCTION : envoyer un message
+//  FONCTION : envoyer un packet
 // =====================================================
-void envoyerMessage(int sock, const char *message)
+int envoyerPacket(int sock, int destinataire, const char *msg)
 {
-    int nb = send(sock, message, strlen(message) + 1, 0);
-    if (nb <= 0)
-    {
-        perror("Erreur en écriture (send)");
-        close(sock);
-        exit(EXIT_FAILURE);
-    }
-    // printf("[DEBUG] Message envoyé : '%s' (%d octets)\n", message, nb);
+    Packet p;
+    p.destinataire = destinataire;
+    strncpy(p.message, msg, LG_MESSAGE);
+
+    char buffer[sizeof(Packet)];
+    memcpy(buffer, &p.destinataire, sizeof(int));
+    memcpy(buffer + sizeof(int), p.message, LG_MESSAGE);
+
+    return send(sock, buffer, sizeof(Packet), 0);
 }
 
 // =====================================================
 //  FONCTION : recevoir une réponse du serveur
 //  -> retourne un pointeur sur buffer statique
 // =====================================================
-const char *recevoirMessage(int sock)
+int recevoirPacket(int sock, Packet *p)
 {
-    static char buffer[256];
+    char buffer[sizeof(int) + LG_MESSAGE];
+    int rec = recv(sock, buffer, sizeof(buffer), 0);
 
-    memset(buffer, 0, sizeof(buffer));
+    if (rec <= 0)
+        return rec;
 
-    // printf("[DEBUG] En attente de la réponse du serveur...\n");
-    int nb = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    int dest_net;
+    memcpy(&dest_net, buffer, sizeof(int));
+    p->destinataire = ntohl(dest_net);
 
-    if (nb < 0)
-    {
-        perror("Erreur en lecture (recv)");
-        close(sock);
-        exit(EXIT_FAILURE);
-    }
-    else if (nb == 0)
-    {
-        printf("Serveur déconnecté.\n");
-        close(sock);
-        return "Error";
-    }
+    memcpy(p->message, buffer + sizeof(int), LG_MESSAGE);
 
-    return buffer;
+    return rec;
 }
 
+// =====================================================
+//  FONCTION : nettoyer l'écran
+// =====================================================
 void clearScreen()
 {
     printf("\033[2J\033[H");
 }
+
+// =====================================================
+//  FONCTION : afficher le pendu selon l'état
+// =====================================================
 void afficherLePendu(const char *state)
 {
     const char *try_paths[] = {
-        "../../assets/pendu.txt", /* when running from src/V0 */
+        "../../assets/pendu.txt", /* when running from src/V1 */
         "../assets/pendu.txt",    /* when running from src/ */
         "assets/pendu.txt"        /* when running from project root */
     };
@@ -122,7 +130,7 @@ void afficherLePendu(const char *state)
         // printf("Chargement de pendu depuis : %s\n", try_paths[used_index]);
     }
 
-    int stade = atoi(state);  // Convertit "0","1","2" en int
+    int stade = atoi(state); // Convertit "0","1","2" en int
 
     char line[256];
     int debut = 0;
@@ -206,19 +214,29 @@ void afficherLePendu(const char *state)
     fclose(file);
 }
 
-
 // =====================================================
-//  FONCTION : jeu du pendu V0
+//  FONCTION : jeu du pendu V1
 // =====================================================
-void jeuDuPenduV0(int sock, const char *ip_dest)
+void jeuDuPenduV1(int sock, const char *ip_dest, int ID_CLIENT)
 {
     static char buffer[256];
     const char *reponse;
     const char *motCache;
     const char *penduStade;
+    const char *penduStadeAdversaire = "";
 
     // --- Attente de "start x" ---
-    reponse = recevoirMessage(sock);
+    Packet p;
+    int ret = recevoirPacket(sock, &p);
+    if (ret <= 0)
+    {
+        printf("Erreur de réception ou connexion fermée par le serveur.\n");
+        return;
+    }
+    else
+    {
+        reponse = p.message;
+    }
     // printf("[DEBUG] Serveur %s : %s\n", ip_dest, reponse);
 
     if (strcmp(reponse, "start x") != 0)
@@ -232,51 +250,114 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
            strcmp(reponse, "DEFAITE") != 0)
     {
         // Réception du mot masqué
-        motCache = recevoirMessage(sock);
+        int currentID = 0;
+        Packet p;
+        int ret = recevoirPacket(sock, &p);
+        if (ret <= 0)
+        {
+            printf("Erreur de réception ou connexion fermée par le serveur.\n");
+            return;
+        }
+        else
+        {
+            motCache = p.message;
+            currentID = p.destinataire;
+        }
+
+        printf("[DEBUG] motCache = %s\nLe Joueur numero %d joue ce tour", motCache, currentID);
+
         clearScreen();
-        printf("--------------------=== Jeu du pendu V0 ===--------------------");
-        // printf("[DEBUG] motCache = %s\n", motCache);
+        printf("--------------------=== Jeu du pendu V1 ===--------------------");
         if (strcmp(motCache, "END") != 0)
         {
             printf("\n\nMot : %s    ", motCache);
             // Réception du nombre d'essais
-            penduStade = recevoirMessage(sock);
+            ret = recevoirPacket(sock, &p);
+            int destinataire = 0;
+            if (ret <= 0)
+            {
+                printf("Erreur de réception ou connexion fermée par le serveur.\n");
+                return;
+            }
+            else
+            {
+                destinataire = p.destinataire;
+            }
+            if (destinataire == ID_CLIENT)
+            {
+                penduStade = p.message;
+            }
+            else
+            {
+                penduStadeAdversaire = p.message;
+            }
             printf("Essais restants : %s\n", penduStade);
+            printf("Essais restants adversaire : %s\n", penduStadeAdversaire);
             // Demande d'une lettre
             afficherLePendu(penduStade);
-            printf("Votre lettre : ");
-            fgets(buffer, sizeof(buffer), stdin);
-            buffer[strcspn(buffer, "\n")] = 0;
-            envoyerMessage(sock, buffer);
+            if (currentID == ID_CLIENT)
+            {
+                printf("Votre lettre : ");
+                fgets(buffer, sizeof(buffer), stdin);
+                buffer[strcspn(buffer, "\n")] = 0;
+                envoyerPacket(sock, ID_CLIENT, buffer);
+            }
+            else
+            {
+                printf("En attente de la lettre de l'adversaire...\n");
+            }
         }
         // Réception du retour du serveur : Bonne lettre / Mauvaise lettre / VICTOIRE / DEFAITE
-        reponse = recevoirMessage(sock);
-        // printf("[DEBUG] reponse = %s\n", reponse);
+        ret = recevoirPacket(sock, &p);
+        int destinataire = 0;
+        if (ret <= 0)
+        {
+            printf("Erreur de réception ou connexion fermée par le serveur.\n");
+            return;
+        }
+        else
+        {
+            reponse = p.message;
+            destinataire = p.destinataire;
+        }
+        if (destinataire != ID_CLIENT && strcmp(reponse, "VICTOIRE") == 0)
+        {
+            reponse = "DEFAITE";
+        } else if (destinataire != ID_CLIENT && strcmp(reponse, "DEFAITE") == 0)
+        {
+            reponse = "VICTOIRE";
+        }
+        printf("[DEBUG] reponse = %s\n", reponse);
     }
 
     // --- Fin du jeu ---
-    if (strcmp(reponse, "VICTOIRE") == 0) {
-    printf("\n!!! Gagné !!!\n\n");
-    } else {
+    if (strcmp(reponse, "VICTOIRE") == 0)
+    {
+        printf("\n!!! Gagné !!!\n\n");
+    }
+    else
+    {
         printf("\n!!! Perdu !!!\n\n");
 
         FILE *file = NULL;
         const char *paths[] = {
             "../../assets/pendu.txt",
             "../assets/pendu.txt",
-            "assets/pendu.txt"
-        };
+            "assets/pendu.txt"};
 
         // Test des trois chemins
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 3; i++)
+        {
             file = fopen(paths[i], "r");
-            if (file != NULL) {
+            if (file != NULL)
+            {
                 // printf("[DEBUG] Fichier trouvé : %s\n", paths[i]);
                 break;
             }
         }
 
-        if (file == NULL) {
+        if (file == NULL)
+        {
             perror("Impossible d'ouvrir pendu.txt");
             return;
         }
@@ -286,13 +367,15 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         int fin = 352;
 
         // Saute jusqu’à "debut"
-        for (int i = 0; i < debut; i++) {
+        for (int i = 0; i < debut; i++)
+        {
             if (!fgets(line, sizeof(line), file))
                 break;
         }
 
         // Affiche le bloc final
-        for (int i = debut; i < fin; i++) {
+        for (int i = debut; i < fin; i++)
+        {
             if (!fgets(line, sizeof(line), file))
                 break;
             printf("%s", line);
@@ -300,19 +383,18 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
 
         fclose(file);
     }
-
 }
 
 // =====================================================
 //  BOUCLE PRINCIPALE DU CLIENT
 // =====================================================
-void boucleClient(int sock, const char *ip_dest)
+void boucleClient(int sock, const char *ip_dest, int ID_CLIENT)
 {
     char buffer[256];
     while (1)
     {
         // Saisie utilisateur
-        printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
+        printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V1) : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
 
@@ -325,20 +407,33 @@ void boucleClient(int sock, const char *ip_dest)
         {
 
             // Envoi au serveur pour lancer la partie
-            envoyerMessage(sock, "start x");
+            envoyerPacket(sock, ID_CLIENT, "start x");
 
-            printf("Démarrage d'une partie de pendu V0...\n");
-            jeuDuPenduV0(sock, ip_dest);
+            printf("Démarrage d'une partie de pendu V1...\n");
+            jeuDuPenduV1(sock, ip_dest, ID_CLIENT);
 
             // IMPORTANT : ne pas renvoyer "start x" une 2e fois
             continue;
         }
 
         // Envoi du message
-        envoyerMessage(sock, buffer);
+        envoyerPacket(sock, ID_CLIENT, buffer);
 
+        Packet p;
         // Réception
-        const char *reponse = recevoirMessage(sock);
+        int ret = recevoirPacket(sock, &p);
+        char *reponse;
+        if (ret <= 0)
+        {
+            printf("Erreur de réception ou connexion fermée par le serveur.\n");
+            break;
+        }
+        else
+        {
+            reponse = p.message;
+            ID_CLIENT = p.destinataire;
+        }
+
         printf("Serveur %s : %s\n", ip_dest, reponse);
         if (strcmp(reponse, "Error") == 0)
         {
@@ -352,6 +447,7 @@ void boucleClient(int sock, const char *ip_dest)
 // =====================================================
 int main(int argc, char *argv[])
 {
+    int ID_CLIENT = 0;
     if (argc < 3)
     {
         printf("USAGE : %s ip port\n", argv[0]);
@@ -370,7 +466,7 @@ int main(int argc, char *argv[])
     int sock = creationDeSocket(ip_dest, port_dest);
 
     // Boucle de communication client ↔ serveur
-    boucleClient(sock, ip_dest);
+    boucleClient(sock, ip_dest, ID_CLIENT);
 
     close(sock);
     return 0;

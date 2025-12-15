@@ -178,9 +178,9 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
     Packet p;
     int ret;
 
-    printf("\n╔════════════════════════════════════════════════════════╗\n");
-    printf("║              PARTIE EN COURS                           ║\n");
-    printf("╚════════════════════════════════════════════════════════╝\n");
+    printf("\n|=======================================================|\n");
+    printf("|              PARTIE EN COURS                           |\n");
+    printf("|========================================================|\n");
 
     // Boucle principale
     while (1)
@@ -190,7 +190,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         ret = recevoirPacket(sock, &p);
         if (ret <= 0)
         {
-            printf("❌ Erreur de réception du mot masqué.\n");
+            printf("[ERREUR] de réception du mot masqué.\n");
             return;
         }
 
@@ -212,16 +212,16 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
                 if (strcmp(p.message, "VICTOIRE") == 0)
                 {
                     clearScreen();
-                    printf("\n╔════════════════════════════════╗\n");
-                    printf("║    🎉  VICTOIRE !  🎉         ║\n");
-                    printf("╚════════════════════════════════╝\n\n");
+                    printf("\n|================================|");
+                    printf("\n|          VICTOIRE !            |");
+                    printf("\n|================================|\n\n");
                 }
                 else
                 {
                     clearScreen();
-                    printf("\n╔════════════════════════════════╗\n");
-                    printf("║    😢  DÉFAITE...  😢         ║\n");
-                    printf("╚════════════════════════════════╝\n\n");
+                    printf("\n|================================|");
+                    printf("\n|          DÉFAITE...            |");
+                    printf("\n|================================|\n\n");
                     afficherLePendu("0");
                 }
             }
@@ -231,17 +231,17 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
                 if (strcmp(p.message, "VICTOIRE") == 0)
                 {
                     clearScreen();
-                    printf("\n╔════════════════════════════════╗\n");
-                    printf("║    😢  DÉFAITE...  😢         ║\n");
-                    printf("╚════════════════════════════════╝\n\n");
+                    printf("\n|================================|");
+                    printf("\n|          DÉFAITE...            |");
+                    printf("\n|================================|\n\n");
                     afficherLePendu("0");
                 }
                 else
                 {
                     clearScreen();
-                    printf("\n╔════════════════════════════════╗\n");
-                    printf("║    🎉  VICTOIRE !  🎉         ║\n");
-                    printf("╚════════════════════════════════╝\n\n");
+                    printf("\n|================================|");
+                    printf("\n|          VICTOIRE !            |");
+                    printf("\n|================================|\n\n");
                 }
             }
             return;
@@ -252,7 +252,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         ret = recevoirPacket(sock, &p);
         if (ret <= 0)
         {
-            printf("❌ Erreur réception essais J1\n");
+            printf("[ERREUR] réception essais J1\n");
             return;
         }
         char essais1[16];
@@ -264,7 +264,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         ret = recevoirPacket(sock, &p);
         if (ret <= 0)
         {
-            printf("❌ Erreur réception essais J2\n");
+            printf("[ERREUR] réception essais J2\n");
             return;
         }
         char essais2[16];
@@ -278,24 +278,24 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         // Affichage
         printf("[DEBUG] Affichage de l'interface...\n");
         clearScreen();
-        printf("╔════════════════════════════════════════════════════════╗\n");
-        printf("║              JEU DU PENDU - EN LIGNE                  ║\n");
-        printf("╚════════════════════════════════════════════════════════╝\n\n");
+        printf("|========================================================|\n");
+        printf("|              JEU DU PENDU - EN LIGNE                   |\n");
+        printf("|========================================================|\n\n");
         printf("Mot : %s\n", motCache);
-        printf("Vos essais restants : %s ❤️\n", essaisMoi);
-        printf("Essais adversaire : %s 💔\n\n", essaisAdversaire);
+        printf("Vos essais restants : %s ♥\n", essaisMoi);
+        printf("Essais adversaire : %s ♥\n\n", essaisAdversaire);
 
         afficherLePendu(essaisMoi);
 
         if (currentID == ID_CLIENT)
         {
-            printf("\n🎯 C'est votre tour !\n");
+            printf("\nC'est votre tour !\n");
             printf("Votre lettre : ");
             fflush(stdout);
             
             if (fgets(buffer, sizeof(buffer), stdin) == NULL)
             {
-                printf("❌ Erreur de lecture.\n");
+                printf("[ERREUR] de lecture.\n");
                 return;
             }
             
@@ -303,7 +303,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
             
             if (strlen(buffer) == 0)
             {
-                printf("⚠️  Vous devez entrer une lettre !\n");
+                printf("Vous devez entrer une lettre !\n");
                 sleep(1);
                 continue;
             }
@@ -322,19 +322,19 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         printf("\n");
         if (strcmp(p.message, "Bonne lettre !") == 0)
         {
-            printf("✅ %s\n", p.message);
+            printf("%s\n", p.message);
         }
         else if (strcmp(p.message, "Mauvaise lettre") == 0)
         {
-            printf("❌ %s\n", p.message);
+            printf("%s\n", p.message);
         }
         else if (strcmp(p.message, "Lettre déjà devinée") == 0)
         {
-            printf("⚠️  %s\n", p.message);
+            printf("%s\n", p.message);
         }
         else
         {
-            printf("ℹ️  %s\n", p.message);
+            printf("%s\n", p.message);
         }
         
         sleep(2);
@@ -354,14 +354,14 @@ void boucleClient(int sock, int *ID_CLIENT)
     if (ret > 0)
     {
         *ID_CLIENT = p.destinataire;
-        printf("\n╔════════════════════════════════════════════════════════╗\n");
-        printf("║  Vous êtes le joueur #%d                               ║\n", *ID_CLIENT);
-        printf("║  %s  ║\n", p.message);
-        printf("╚════════════════════════════════════════════════════════╝\n");
+        printf("\n|========================================================|\n");
+        printf("\n|  Vous êtes le joueur #%d                               |", *ID_CLIENT);
+        printf("\n|  %s  |\n", p.message);
+        printf("\n|========================================================|\n");
     }
     else
     {
-        printf("Erreur lors de la réception de l'ID.\n");
+        printf("[ERREUR] lors de la réception de l'ID.\n");
         return;
     }
 
@@ -373,7 +373,7 @@ void boucleClient(int sock, int *ID_CLIENT)
         
         if (fgets(buffer, sizeof(buffer), stdin) == NULL)
         {
-            printf("Erreur de lecture.\n");
+            printf("[ERREUR] de lecture.\n");
             break;
         }
         
@@ -387,13 +387,13 @@ void boucleClient(int sock, int *ID_CLIENT)
         if (strcmp(buffer, "exit") == 0)
         {
             envoyerPacket(sock, *ID_CLIENT, "exit");
-            printf("👋 Fermeture du client.\n");
+            printf("Fermeture du client.\n");
             break;
         }
         else if (strcmp(buffer, "start") == 0)
         {
             envoyerPacket(sock, *ID_CLIENT, "start");
-            printf("🎮 Recherche d'une partie...\n");
+            printf("Recherche d'une partie...\n");
             
             // Attendre la réponse du serveur
             ret = recevoirPacket(sock, &p);
@@ -407,14 +407,14 @@ void boucleClient(int sock, int *ID_CLIENT)
             if (strcmp(p.message, "start") == 0)
             {
                 // Le serveur a lancé la partie immédiatement
-                printf("✅ Partie lancée !\n");
+                printf("Partie lancée !\n");
                 sleep(1);
                 jeuDuPenduV1(sock, *ID_CLIENT);
             }
             else if (strstr(p.message, "attente") != NULL || strstr(p.message, "En attente") != NULL)
             {
                 // En attente de l'adversaire
-                printf("⏳ %s\n", p.message);
+                printf("%s\n", p.message);
                 
                 // Attendre le message "start" du serveur
                 while (1)
@@ -428,7 +428,7 @@ void boucleClient(int sock, int *ID_CLIENT)
                     
                     if (strcmp(p.message, "start") == 0)
                     {
-                        printf("✅ Adversaire trouvé ! Début de la partie...\n");
+                        printf("Adversaire trouvé ! Début de la partie...\n");
                         sleep(1);
                         jeuDuPenduV1(sock, *ID_CLIENT);
                         break;
@@ -454,7 +454,7 @@ void boucleClient(int sock, int *ID_CLIENT)
             ret = recevoirPacket(sock, &p);
             if (ret <= 0)
             {
-                printf("Erreur de réception ou connexion fermée.\n");
+                printf("[ERREUR] de réception ou connexion fermée.\n");
                 break;
             }
 

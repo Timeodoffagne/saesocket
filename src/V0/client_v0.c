@@ -234,7 +234,9 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         // Réception du mot masqué
         motCache = recevoirMessage(sock);
         clearScreen();
-        printf("--------------------=== Jeu du pendu V0 ===--------------------");
+        printf("\n|=======================================================|\n");
+        printf("|              PARTIE EN COURS                           |\n");
+        printf("|========================================================|\n");
         // printf("[DEBUG] motCache = %s\n", motCache);
         if (strcmp(motCache, "END") != 0)
         {
@@ -256,9 +258,13 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
 
     // --- Fin du jeu ---
     if (strcmp(reponse, "VICTOIRE") == 0) {
-    printf("\n!!! Gagné !!!\n\n");
+        printf("\n|================================|");
+        printf("\n|          VICTOIRE !            |");
+        printf("\n|================================|\n\n");
     } else {
-        printf("\n!!! Perdu !!!\n\n");
+        printf("\n|================================|");
+        printf("\n|          DÉFAITE...            |");
+        printf("\n|================================|\n\n");
 
         FILE *file = NULL;
         const char *paths[] = {
@@ -277,7 +283,7 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         }
 
         if (file == NULL) {
-            perror("Impossible d'ouvrir pendu.txt");
+            fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt.\n");
             return;
         }
 

@@ -129,7 +129,9 @@ void afficherLePendu(const char *state)
     }
     if (!file)
     {
-        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt.\n");
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt. Chemins essayés:\n");
+        for (int i = 0; i < (int)(sizeof(try_paths) / sizeof(try_paths[0])); ++i)
+            fprintf(stderr, "  - %s\n", try_paths[i]);
         return;
     }
 

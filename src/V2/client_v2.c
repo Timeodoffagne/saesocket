@@ -108,7 +108,7 @@ int recevoirPacket(int sock, Packet *p)
     memcpy(&dest_net, buffer, sizeof(int));
     p->destinataire = ntohl(dest_net);
 
-    memcpy(buffer + sizeof(int), p->message, LG_MESSAGE);
+    memcpy(p->message, buffer + sizeof(int), LG_MESSAGE);
     p->message[LG_MESSAGE - 1] = '\0';
 
     printf("[CLIENT REÇOIT] Source=%d | Message='%s'\n", p->destinataire, p->message);

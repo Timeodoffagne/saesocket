@@ -1,13 +1,53 @@
+Bienvenu dans notre jeu de pendu !
+Vous allez pouvoir tester notre jeu en suivant les instructions suivantes.
+
 Jeu créé par Thomas Eugène, Hugo Sauvage, Célien Kerckhove et Timéo Doffagne.
 
 Version 0 :
 
-    Compilation serveur : gcc ./src/V0/serveur_v0.c -o ./build/serveur_v0
+    Compilation serveur depuis le dossier saesocket : gcc ./src/V0/serveur_v0.c -o ./build/serveur_v0
     Exécution serveur : ./build/client_v0
 
-    Compilation client : gcc ./src/V0/client_v0.c -o ./build/client_v0
+    Compilation client depuis le dossier saesocket : gcc ./src/V0/client_v0.c -o ./build/client_v0
     Exécution client : ./build/client_v0 *ip serveur* *port serveur*
 
+    Cette version est une version classique à un seul joueur. Le joueur entre une lettre, reçois le résultat et continue jusqu'à ce qu'il trouve le mot ou qu'il perde.
+    
     Le client arrive sur un terminal et peut envoyer des messages au serveur.
     À partir du moment où le client envoie "start x", le serveur lance une partie de pendu.
     Une fois la partie finie, le client retourne sur l'écran d'accueil, et peut relancer une partie ou quitter la serveur avec "exit".
+
+
+Version 1 :
+
+    Compilation serveur depuis le dossier saesocket : gcc ./src/V0/serveur_v1.c -o ./build/serveur_v1
+    Exécution serveur : ./build/client_v1
+
+    Compilation client depuis le dossier saesocket : gcc ./src/V0/client_v1.c -o ./build/client_v1
+    Exécution client : ./build/client_v1 *ip serveur* *port serveur*
+
+    Cette version est une version 2 joueurs du pendu.
+    Les 2 joueurs cherchent le même mot, voient les mêmes lettres trouvés (si le j1 trouve la première lettre, le j2 la verra ausssi), mais ont un pendu différent.
+    Les moyens de gagner sont les suivants : terminer le mot ; l'autre joueur n'a plus d'essai et complète son pendu.
+
+    Les clients arrivent sur un terminal et peuvent alternativement envoyer des messages au serveur.
+    Les clients entrent la commande "start" pour accéder à la partie.
+    Une fois la partie finie, les clients retournent sur l'écran d'accueil et peuvent relancer une partie ou quitter le serveur avec "exit".
+
+
+Version 2 :
+
+    Compilation serveur depuis le dossier saesocket : gcc ./src/V0/serveur_v2.c -o ./build/serveur_v2
+    Exécution serveur : ./build/client_v2
+
+    Compilation client depuis le dossier saesocket : gcc ./src/V0/client_v2.c -o ./build/client_v2
+    Exécution client : ./build/client_v2 *ip serveur* *port serveur*
+
+    Cette version est une version classique du pendu à 2 joueurs.
+    Le premier joueur connecté sera le joueur qui fera deviner le mot à l'autre joueur, le deuxième joueur connecté devra donc deviner le mot du joueur 1.
+
+    Les clients arrivent sur un terminal et peuvent alternativement envoyer des messages au serveur.
+    Le premier joueur à se connecter choisi son mot à faire deviner.
+    Le joueur 2 fera une partie classique comme à la version 0, avec le mot choisi par le joueur 1.
+
+    La partie se termine quand le joueur 2 n'a plus d'essai restant ou quand il a trouvé le mot du joueur 1.

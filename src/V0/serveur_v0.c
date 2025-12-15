@@ -124,7 +124,7 @@ int jeuDuPendu(int socketDialogue)
     printf("Nouveau jeu du pendu ! Mot = %s (%d lettres)\n", motADeviner, longueurMot);
 
     /* 1) Le serveur confirme le début */
-    envoyerMessage(socketDialogue, "start x");
+    envoyerMessage(socketDialogue, "start");
 
     while (essaisRestants > 0 && lettresTrouvees < longueurMot)
     {
@@ -242,10 +242,10 @@ int recevoirMessage(int socketDialogue)
     printf("%s a envoyé : %s (%d octets)\n", ipClient, messageRecu, lus);
 
     /* Gestion des commandes :
-       - "start x" : démarre le jeu (comportement existant)
+       - "start" : démarre le jeu (comportement existant)
        - "exit"    : le client demande la fermeture -> on ferme côté serveur
        - autre     : on informe le client que ce n'est pas une commande */
-    if (strcmp(messageRecu, "start x") == 0)
+    if (strcmp(messageRecu, "start") == 0)
     {
         printf("Commande spéciale reçue : démarrage du jeu.\n");
         /* Lance le jeu ; si le client se déconnecte pendant la partie, propager 0 */
@@ -267,7 +267,7 @@ int recevoirMessage(int socketDialogue)
     }
     else
     {
-        envoyerMessage(socketDialogue, "Commande inconnue. Envoyez 'start x' ou 'exit'.");
+        envoyerMessage(socketDialogue, "Commande inconnue. Envoyez 'start' ou 'exit'.");
     }
 
     return lus;

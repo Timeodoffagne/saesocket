@@ -217,11 +217,11 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
     const char *motCache;
     const char *penduStade;
 
-    // --- Attente de "start x" ---
+    // --- Attente de "start" ---
     reponse = recevoirMessage(sock);
     // printf("[DEBUG] Serveur %s : %s\n", ip_dest, reponse);
 
-    if (strcmp(reponse, "start x") != 0)
+    if (strcmp(reponse, "start") != 0)
     {
         printf("Erreur : lancement refusé.\n");
         return;
@@ -312,7 +312,7 @@ void boucleClient(int sock, const char *ip_dest)
     while (1)
     {
         // Saisie utilisateur
-        printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start x' pour jouer au pendu V0) : ");
+        printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start' pour jouer au pendu V0) : ");
         fgets(buffer, sizeof(buffer), stdin);
         buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
 
@@ -321,16 +321,16 @@ void boucleClient(int sock, const char *ip_dest)
             printf("Fermeture du client.\n");
             break;
         }
-        else if (strncmp(buffer, "start x", 7) == 0)
+        else if (strncmp(buffer, "start", 7) == 0)
         {
 
             // Envoi au serveur pour lancer la partie
-            envoyerMessage(sock, "start x");
+            envoyerMessage(sock, "start");
 
             printf("Démarrage d'une partie de pendu V0...\n");
             jeuDuPenduV0(sock, ip_dest);
 
-            // IMPORTANT : ne pas renvoyer "start x" une 2e fois
+            // IMPORTANT : ne pas renvoyer "start" une 2e fois
             continue;
         }
 

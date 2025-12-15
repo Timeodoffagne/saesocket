@@ -202,16 +202,50 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
         }
 
         // Envoie le mot masqué avec l'ID du joueur courant
-        envoyerPacket(c1->socket, joueurCourant, motCache);
-        envoyerPacket(c2->socket, joueurCourant, motCache);
+        printf("[SERVEUR] Envoi mot masqué : '%s' (joueur actif: %d)\n", motCache, joueurCourant);
+        if (envoyerPacket(c1->socket, joueurCourant, motCache) <= 0)
+        {
+            printf("Erreur envoi mot à client 1\n");
+            return 0;
+        }
+        if (envoyerPacket(c2->socket, joueurCourant, motCache) <= 0)
+        {
+            printf("Erreur envoi mot à client 2\n");
+            return 0;
+        }
 
         // Envoie les essais restants individuels
         char essais1[8], essais2[8];
         sprintf(essais1, "%d", c1->essaisRestants);
         sprintf(essais2, "%d", c2->essaisRestants);
         
-        envoyerPacket(c1->socket, c1->id, essais1);
-        envoyerPacket(c2->socket, c2->id, essais2);
+        printf("[SERVEUR] Envoi essais : J1=%s, J2=%s\n", essais1, essais2);
+        
+        // Envoi essais joueur 1 à tout le monde
+        if (envoyerPacket(c1->socket, c1->id, essais1) <= 0)
+        {
+            printf("Erreur envoi essais1 à client 1\n");
+            return 0;
+        }
+        if (envoyerPacket(c2->socket, c1->id, essais1) <= 0)
+        {
+            printf("Erreur envoi essais1 à client 2\n");
+            return 0;
+        }
+        
+        // Envoi essais joueur 2 à tout le monde
+        if (envoyerPacket(c1->socket, c2->id, essais2) <= 0)
+        {
+            printf("Erreur envoi essais2 à client 1\n");
+            return 0;
+        }
+        if (envoyerPacket(c2->socket, c2->id, essais2) <= 0)
+        {
+            printf("Erreur envoi essais2 à client 2\n");
+            return 0;
+        }
+        
+        printf("[SERVEUR] En attente de la lettre du joueur %d...\n", joueurCourant);
 
         // Réception de la lettre du joueur courant
         Packet p;
@@ -365,8 +399,16 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
         printf("→ Les deux joueurs sont prêts ! Lancement de la partie...\n");
         
         // Envoyer confirmation "start" aux deux joueurs
-        envoyerPacket(c1->socket, c1->id, "start");
-        envoyerPacket(c2->socket, c2->id, "start");
+        if (envoyerPacket(c1->socket, c1->id, "start") <= 0)
+        {
+            printf("Erreur envoi à client 1\n");
+            return 0;
+        }
+        if (envoyerPacket(c2->socket, c2->id, "start") <= 0)
+        {
+            printf("Erreur envoi à client 2\n");
+            return 0;
+        }
         
         // Petit délai pour que les clients se préparent
         sleep(1);

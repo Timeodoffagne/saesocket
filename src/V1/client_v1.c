@@ -186,20 +186,23 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
     while (1)
     {
         // Réception du mot masqué
+        printf("[DEBUG] Attente du mot masqué...\n");
         ret = recevoirPacket(sock, &p);
         if (ret <= 0)
         {
-            printf("❌ Erreur de réception.\n");
+            printf("❌ Erreur de réception du mot masqué.\n");
             return;
         }
 
         char motCache[LG_MESSAGE];
         strcpy(motCache, p.message);
         int currentID = p.destinataire;
+        printf("[DEBUG] Mot reçu: '%s', joueur actif: %d\n", motCache, currentID);
 
         // Si "END" → le serveur annonce la fin
         if (strcmp(motCache, "END") == 0)
         {
+            printf("[DEBUG] Fin de partie détectée.\n");
             // Recevoir VICTOIRE ou DEFAITE
             ret = recevoirPacket(sock, &p);
             if (ret <= 0) return;
@@ -245,22 +248,35 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         }
 
         // Réception des essais restants joueur 1
+        printf("[DEBUG] Attente essais joueur 1...\n");
         ret = recevoirPacket(sock, &p);
-        if (ret <= 0) return;
+        if (ret <= 0)
+        {
+            printf("❌ Erreur réception essais J1\n");
+            return;
+        }
         char essais1[16];
         strcpy(essais1, p.message);
+        printf("[DEBUG] Essais J1 reçus: %s (dest=%d)\n", essais1, p.destinataire);
 
         // Réception des essais restants joueur 2
+        printf("[DEBUG] Attente essais joueur 2...\n");
         ret = recevoirPacket(sock, &p);
-        if (ret <= 0) return;
+        if (ret <= 0)
+        {
+            printf("❌ Erreur réception essais J2\n");
+            return;
+        }
         char essais2[16];
         strcpy(essais2, p.message);
+        printf("[DEBUG] Essais J2 reçus: %s (dest=%d)\n", essais2, p.destinataire);
 
         // Déterminer mes essais et ceux de l'adversaire
         char *essaisMoi = (ID_CLIENT == 1) ? essais1 : essais2;
         char *essaisAdversaire = (ID_CLIENT == 1) ? essais2 : essais1;
 
         // Affichage
+        printf("[DEBUG] Affichage de l'interface...\n");
         clearScreen();
         printf("╔════════════════════════════════════════════════════════╗\n");
         printf("║              JEU DU PENDU - EN LIGNE                  ║\n");

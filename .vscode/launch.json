@@ -7,9 +7,9 @@
       "request": "launch",
       "args": [],
       "stopAtEntry": false,
-      "externalConsole": false,
-      "cwd": "/home/thomas/Documents/GitHub/saesocket",
-      "program": "/home/thomas/Documents/GitHub/saesocket/build/Debug/outDebug",
+      "externalConsole": true,
+      "cwd": "d:/BUT/R3/sae_R3.01/saesocket/src/V1",
+      "program": "d:/BUT/R3/sae_R3.01/saesocket/src/V1/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

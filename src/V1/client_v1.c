@@ -312,7 +312,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         }
         else
         {
-            printf("\n⏳ En attente du joueur %d...\n", currentID);
+            printf("\nEn attente du joueur %d...\n", currentID);
         }
 
         // Réception du retour : Bonne/Mauvaise lettre, etc.

@@ -108,7 +108,7 @@ int recevoirPacket(int sock, Packet *p)
     memcpy(&dest_net, buffer, sizeof(int));
     p->destinataire = ntohl(dest_net);
 
-    memcpy(p->message, buffer + sizeof(int), LG_MESSAGE);
+    memcpy(buffer + sizeof(int), p->message, LG_MESSAGE);
     p->message[LG_MESSAGE - 1] = '\0';
 
     printf("[CLIENT REÇOIT] Source=%d | Message='%s'\n", p->destinataire, p->message);
@@ -355,7 +355,7 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
                 char temp_msg[LG_MESSAGE];
                 strncpy(temp_msg, p.message + strlen("UPDATE:"), LG_MESSAGE);
 
-                // Parser UPDATE:<Mot Caché>|<Essais>|<Feedback>
+                // Parser UPDATE:<Mot Caché>|<Essais>|<Feedback>|<Lettres Jouées>
                 char *token = strtok(temp_msg, "|");
                 if (token)
                     strncpy(currentState.motMasque, token, sizeof(currentState.motMasque));
@@ -367,6 +367,12 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
                 char *feedback_token = strtok(NULL, "|");
                 if (feedback_token)
                     printf("-> RÉSULTAT : %s\n", feedback_token);
+
+                // ********** CORRECTION C2 : MISE À JOUR DES LETTRES JOUÉES **********
+                char *lettres_jouees_token = strtok(NULL, "|");
+                if (lettres_jouees_token)
+                    strncpy(currentState.lettresJouees, lettres_jouees_token, sizeof(currentState.lettresJouees));
+                // *******************************************************************
 
                 // Mettre à jour l'état de fin de partie si C1 l'a détecté
                 if (currentState.essaisRestants <= 0 || strstr(currentState.motMasque, "_") == NULL)
@@ -399,7 +405,6 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
                 char lettre = p.message[0];
                 printf("C2 joue : %c\n", lettre);
 
-                // ********** CORRECTION LOGIQUE DE JEU CÔTÉ C1 **********
                 char *feedback = traiterLettre(lettre);
 
                 // Vérifier la condition de victoire/défaite (C1 seul responsable)
@@ -410,10 +415,15 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
 
                 // Envoi de la mise à jour à C2
                 char update_msg[LG_MESSAGE];
-                // ATTENTION: le feedback ne doit pas contenir de '|'
-                snprintf(update_msg, LG_MESSAGE, "UPDATE:%s|%d|%s", currentState.motMasque, currentState.essaisRestants, feedback);
+                // ********** CORRECTION C1 : AJOUT DES LETTRES JOUÉES **********
+                // Nouveau format: UPDATE:<Mot Masqué>|<Essais>|<Feedback>|<Lettres Jouées>
+                snprintf(update_msg, LG_MESSAGE, "UPDATE:%s|%d|%s|%s",
+                         currentState.motMasque,
+                         currentState.essaisRestants,
+                         feedback,
+                         currentState.lettresJouees);
                 envoyerPacket(sock, ID_CLIENT, update_msg);
-                // *******************************************************
+                // *************************************************************
 
                 if (partie_finie)
                 {
@@ -455,7 +465,7 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
     }
     else // C2 (Devineur) doit attendre le message de fin de jeu
     {
-        // Si le dernier message n'était pas un END_GAME, on l'attend
+        // Si le dernier message reçu n'est PAS un message de fin de jeu, on attend le message de fin de jeu de C1.
         if (strstr(p.message, "END_GAME:") == NULL)
         {
             ret = recevoirPacket(sock, &p);

@@ -482,7 +482,7 @@ void boucleClient(int sock, int *ID_CLIENT)
                 // Le serveur a lancé la partie immédiatement
                 printf("Partie lancée !\n");
                 sleep(1);
-                jeuDuPenduV1(sock, *ID_CLIENT);
+                jeuDuPendu(sock, *ID_CLIENT);
             }
             else if (strstr(p.message, "attente") != NULL || strstr(p.message, "En attente") != NULL)
             {

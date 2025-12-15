@@ -181,10 +181,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
     printf("\n=== Nouvelle partie ===\n");
     printf("Mot à deviner : %s (%d lettres)\n", motADeviner, longueurMot);
 
-    // Confirmation de démarrage
-    envoyerPacket(c1->socket, c1->id, "start");
-    envoyerPacket(c2->socket, c2->id, "start");
-
+    // Boucle principale du jeu
     while (lettresTrouvees < longueurMot && 
            c1->essaisRestants > 0 && 
            c2->essaisRestants > 0)
@@ -351,6 +348,13 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
 
         // Les deux joueurs sont prêts : lancer la partie
         printf("→ Les deux joueurs sont prêts ! Lancement de la partie...\n");
+        
+        // Envoyer confirmation "start" aux deux joueurs
+        envoyerPacket(c1->socket, c1->id, "start");
+        envoyerPacket(c2->socket, c2->id, "start");
+        
+        // Petit délai pour que les clients se préparent
+        sleep(1);
         
         int res = jeuDuPendu(c1, c2);
         if (res == 0)

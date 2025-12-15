@@ -176,22 +176,10 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
 {
     char buffer[256];
     Packet p;
-
-    // Attente de "start" du serveur
-    int ret = recevoirPacket(sock, &p);
-    if (ret <= 0)
-    {
-        printf("Erreur de réception ou connexion fermée par le serveur.\n");
-        return;
-    }
-
-    if (strcmp(p.message, "start") != 0)
-    {
-        printf("Message du serveur: %s\n", p.message);
-        return;
-    }
+    int ret;
 
     printf("\n=== Partie lancée ===\n");
+    printf("En attente du premier tour...\n");
 
     // Boucle principale
     while (1)
@@ -380,7 +368,7 @@ void boucleClient(int sock, int *ID_CLIENT)
             envoyerPacket(sock, *ID_CLIENT, "start");
             printf("🎮 Recherche d'une partie...\n");
             
-            // Le serveur peut répondre avec un message d'attente ou lancer la partie
+            // Attendre la réponse du serveur
             ret = recevoirPacket(sock, &p);
             if (ret <= 0)
             {
@@ -388,42 +376,45 @@ void boucleClient(int sock, int *ID_CLIENT)
                 break;
             }
             
-            // Si c'est un message d'attente
-            if (strstr(p.message, "attente") != NULL || strstr(p.message, "En attente") != NULL)
+            // Vérifier si c'est un message d'attente ou le début de la partie
+            if (strcmp(p.message, "start") == 0)
             {
-                printf("⏳ %s\n", p.message);
-                printf("   En attente de l'adversaire...\n");
-                
-                // Attendre que l'adversaire rejoigne et que le serveur lance la partie
-                ret = recevoirPacket(sock, &p);
-                if (ret <= 0)
-                {
-                    printf("Erreur de réception.\n");
-                    break;
-                }
-                
-                // Si c'est "start", on lance le jeu
-                if (strcmp(p.message, "start") == 0)
-                {
-                    printf("✅ Adversaire trouvé ! Début de la partie...\n");
-                    sleep(1);
-                    jeuDuPenduV1(sock, *ID_CLIENT);
-                }
-                else
-                {
-                    printf("Message inattendu: %s\n", p.message);
-                }
-            }
-            else if (strcmp(p.message, "start") == 0)
-            {
-                // Lancement immédiat
-                printf("✅ Partie trouvée ! Début de la partie...\n");
+                // Le serveur a lancé la partie immédiatement
+                printf("✅ Partie lancée !\n");
                 sleep(1);
                 jeuDuPenduV1(sock, *ID_CLIENT);
             }
+            else if (strstr(p.message, "attente") != NULL || strstr(p.message, "En attente") != NULL)
+            {
+                // En attente de l'adversaire
+                printf("⏳ %s\n", p.message);
+                
+                // Attendre le message "start" du serveur
+                while (1)
+                {
+                    ret = recevoirPacket(sock, &p);
+                    if (ret <= 0)
+                    {
+                        printf("Connexion perdue.\n");
+                        return;
+                    }
+                    
+                    if (strcmp(p.message, "start") == 0)
+                    {
+                        printf("✅ Adversaire trouvé ! Début de la partie...\n");
+                        sleep(1);
+                        jeuDuPenduV1(sock, *ID_CLIENT);
+                        break;
+                    }
+                    else
+                    {
+                        printf("Message serveur: %s\n", p.message);
+                    }
+                }
+            }
             else
             {
-                printf("Serveur: %s\n", p.message);
+                printf("Réponse serveur: %s\n", p.message);
             }
             
             continue;

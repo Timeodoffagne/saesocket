@@ -174,7 +174,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
     c1->essaisRestants = 10;
     c2->essaisRestants = 10;
     int lettresTrouvees = 0;
-    int joueurCourant = 1;
+    int joueurCourant = 2;
 
     char motCache[LG_MESSAGE];
 

@@ -222,7 +222,21 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
         if (lus <= 0)
         {
             printf("Client %d déconnecté pendant la partie.\n", joueurCourant);
-            return 0;
+            
+            // Informer l'autre joueur
+            ClientData *adversaire = (joueurCourant == 1) ? c2 : c1;
+            if (adversaire && adversaire->socket >= 0)
+            {
+                envoyerPacket(adversaire->socket, adversaire->id, "END");
+                sleep(1);
+                envoyerPacket(adversaire->socket, adversaire->id, "VICTOIRE");
+            }
+            
+            // Réinitialiser les états
+            c1->pret = 0;
+            c2->pret = 0;
+            
+            return 0;  // Retourner 0 pour indiquer la déconnexion
         }
 
         char lettre = p.message[0];
@@ -330,6 +344,7 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
             envoyerPacket(joueur->socket, identifiantClient, 
                          "En attente d'un adversaire...");
             printf("→ Adversaire non connecté, en attente.\n");
+            joueur->pret = 1;  // Marquer comme prêt même si seul
             return lus;
         }
 
@@ -358,7 +373,11 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
         
         int res = jeuDuPendu(c1, c2);
         if (res == 0)
+        {
+            // Un joueur s'est déconnecté pendant la partie
+            printf("→ Partie interrompue à cause d'une déconnexion.\n");
             return 0;
+        }
 
         return lus;
     }
@@ -493,6 +512,7 @@ void boucleServeur(int socketEcoute)
                 close(client1->socket);
                 free(client1);
                 client1 = NULL;
+                printf("ℹ️  Serveur prêt à accepter de nouvelles connexions.\n");
             }
         }
 
@@ -506,6 +526,7 @@ void boucleServeur(int socketEcoute)
                 close(client2->socket);
                 free(client2);
                 client2 = NULL;
+                printf("ℹ️  Serveur prêt à accepter de nouvelles connexions.\n");
             }
         }
 

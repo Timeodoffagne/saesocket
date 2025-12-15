@@ -178,8 +178,9 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
     Packet p;
     int ret;
 
-    printf("\n=== Partie lancée ===\n");
-    printf("En attente du premier tour...\n");
+    printf("\n╔════════════════════════════════════════════════════════╗\n");
+    printf("║              PARTIE EN COURS                           ║\n");
+    printf("╚════════════════════════════════════════════════════════╝\n");
 
     // Boucle principale
     while (1)
@@ -188,11 +189,12 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         ret = recevoirPacket(sock, &p);
         if (ret <= 0)
         {
-            printf("Erreur de réception.\n");
+            printf("❌ Erreur de réception.\n");
             return;
         }
 
-        char *motCache = p.message;
+        char motCache[LG_MESSAGE];
+        strcpy(motCache, p.message);
         int currentID = p.destinataire;
 
         // Si "END" → le serveur annonce la fin
@@ -242,16 +244,21 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
             return;
         }
 
-        // Réception des essais restants pour chaque joueur
+        // Réception des essais restants joueur 1
         ret = recevoirPacket(sock, &p);
         if (ret <= 0) return;
-        char essaisMoi[16];
-        strcpy(essaisMoi, p.message);
+        char essais1[16];
+        strcpy(essais1, p.message);
 
+        // Réception des essais restants joueur 2
         ret = recevoirPacket(sock, &p);
         if (ret <= 0) return;
-        char essaisAdversaire[16];
-        strcpy(essaisAdversaire, p.message);
+        char essais2[16];
+        strcpy(essais2, p.message);
+
+        // Déterminer mes essais et ceux de l'adversaire
+        char *essaisMoi = (ID_CLIENT == 1) ? essais1 : essais2;
+        char *essaisAdversaire = (ID_CLIENT == 1) ? essais2 : essais1;
 
         // Affichage
         clearScreen();
@@ -272,7 +279,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
             
             if (fgets(buffer, sizeof(buffer), stdin) == NULL)
             {
-                printf("Erreur de lecture.\n");
+                printf("❌ Erreur de lecture.\n");
                 return;
             }
             
@@ -280,7 +287,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
             
             if (strlen(buffer) == 0)
             {
-                printf("Vous devez entrer une lettre !\n");
+                printf("⚠️  Vous devez entrer une lettre !\n");
                 sleep(1);
                 continue;
             }
@@ -304,6 +311,10 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         else if (strcmp(p.message, "Mauvaise lettre") == 0)
         {
             printf("❌ %s\n", p.message);
+        }
+        else if (strcmp(p.message, "Lettre déjà devinée") == 0)
+        {
+            printf("⚠️  %s\n", p.message);
         }
         else
         {

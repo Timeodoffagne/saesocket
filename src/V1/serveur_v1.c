@@ -298,7 +298,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
             }
             envoyerPacket(c1->socket, joueurCourant, "Bonne lettre !");
             envoyerPacket(c2->socket, joueurCourant, "Bonne lettre !");
-            printf("→ Bonne lettre ! (%d/%d trouvées)\n", lettresTrouvees, longueurMot);
+            printf("-> Bonne lettre ! (%d/%d trouvées)\n", lettresTrouvees, longueurMot);
         }
         else
         {
@@ -306,7 +306,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
             joueur->essaisRestants--;
             envoyerPacket(c1->socket, joueurCourant, "Mauvaise lettre");
             envoyerPacket(c2->socket, joueurCourant, "Mauvaise lettre");
-            printf("→ Mauvaise lettre ! (reste %d essais)\n", joueur->essaisRestants);
+            printf("-> Mauvaise lettre ! (reste %d essais)\n", joueur->essaisRestants);
         }
 
         // Alternance des joueurs
@@ -324,7 +324,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
     {
         // Le dernier joueur qui a trouvé la dernière lettre gagne
         joueurCourant = (joueurCourant == 1) ? 2 : 1;
-        printf("→ Joueur %d a gagné !\n", joueurCourant);
+        printf("-> Joueur %d a gagné !\n", joueurCourant);
         
         if (joueurCourant == 1)
         {
@@ -340,7 +340,7 @@ int jeuDuPendu(ClientData *c1, ClientData *c2)
     else
     {
         // Les deux ont perdu (plus d'essais)
-        printf("→ Les deux joueurs ont perdu ! Mot : %s\n", motADeviner);
+        printf("-> Les deux joueurs ont perdu ! Mot : %s\n", motADeviner);
         envoyerPacket(c1->socket, 1, "DEFAITE");
         envoyerPacket(c2->socket, 2, "DEFAITE");
     }
@@ -370,33 +370,33 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
     // Commande START : matchmaking
     if (strcmp(p.message, "start") == 0)
     {
-        printf("→ Client %d veut jouer.\n", identifiantClient);
+        printf("-> Client %d veut jouer.\n", identifiantClient);
 
         // Vérifier que l'adversaire est connecté
         if (!adversaire)
         {
             envoyerPacket(joueur->socket, identifiantClient, 
                          "En attente d'un adversaire...");
-            printf("→ Adversaire non connecté, en attente.\n");
+            printf("-> Adversaire non connecté, en attente.\n");
             joueur->pret = 1;  // Marquer comme prêt même si seul
             return lus;
         }
 
         // Marquer ce joueur comme prêt
         joueur->pret = 1;
-        printf("→ Client %d marqué comme prêt.\n", identifiantClient);
+        printf("-> Client %d marqué comme prêt.\n", identifiantClient);
 
         // Si l'adversaire n'est pas encore prêt
         if (!adversaire->pret)
         {
             envoyerPacket(joueur->socket, identifiantClient, 
                          "En attente de l'adversaire...");
-            printf("→ En attente que client %d tape 'start'.\n", adversaire->id);
+            printf("-> En attente que client %d tape 'start'.\n", adversaire->id);
             return lus;
         }
 
         // Les deux joueurs sont prêts : lancer la partie
-        printf("→ Les deux joueurs sont prêts ! Lancement de la partie...\n");
+        printf("-> Les deux joueurs sont prêts ! Lancement de la partie...\n");
         
         // Envoyer confirmation "start" aux deux joueurs
         if (envoyerPacket(c1->socket, c1->id, "start") <= 0)

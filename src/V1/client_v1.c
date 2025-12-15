@@ -199,7 +199,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         int currentID = p.destinataire;
         printf("[DEBUG] Mot reçu: '%s', joueur actif: %d\n", motCache, currentID);
 
-        // Si "END" → le serveur annonce la fin
+        // Si "END" -> le serveur annonce la fin
         if (strcmp(motCache, "END") == 0)
         {
             printf("[DEBUG] Fin de partie détectée.\n");

@@ -119,7 +119,7 @@ int recevoirPacket(int socketDialogue, Packet *p)
     {
         char *ipClient = inet_ntoa(addrClient.sin_addr);
         printf("[SERVEUR] RECU ← %s | Dest=%d | Message='%s'\n",
-               ipClient, p->destinataire, p.message);
+               ipClient, p->destinataire, p->message);
     }
 
     return lus;

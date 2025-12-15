@@ -161,7 +161,7 @@ int recevoirPacket(int socketDialogue, Packet *p)
 }
 
 /* -------------------------------------------------------------------------- */
-/*                        JEU DU PENDU (CORRIGÉ)                              */
+/*                        JEU DU PENDU                                        */
 /* -------------------------------------------------------------------------- */
 int jeuDuPendu(ClientData *c1, ClientData *c2)
 {
@@ -417,7 +417,7 @@ int traiterPacket(ClientData *c1, ClientData *c2, int identifiantClient)
         if (res == 0)
         {
             // Un joueur s'est déconnecté pendant la partie
-            printf("→ Partie interrompue à cause d'une déconnexion.\n");
+            printf("Partie interrompue à cause d'une déconnexion.\n");
             return 0;
         }
 
@@ -509,7 +509,7 @@ void boucleServeur(int socketEcoute)
                         c->essaisRestants = 10;
                         c->pret = 0;
                         client1 = c;
-                        printf("✓ Client 1 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        printf("Client 1 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
                         envoyerPacket(s, 1, "Bienvenue client 1 ! Tapez 'start' pour jouer.");
                     }
                 }
@@ -529,13 +529,13 @@ void boucleServeur(int socketEcoute)
                         c->essaisRestants = 10;
                         c->pret = 0;
                         client2 = c;
-                        printf("✓ Client 2 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        printf("Client 2 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
                         envoyerPacket(s, 2, "Bienvenue client 2 ! Tapez 'start' pour jouer.");
                     }
                 }
                 else
                 {
-                    printf("✗ Serveur plein : refus du client %s\n", 
+                    printf("Serveur plein : refus du client %s\n", 
                            inet_ntoa(clientAddr.sin_addr));
                     char *msg = "Serveur plein\n";
                     send(s, msg, strlen(msg), 0);
@@ -550,11 +550,11 @@ void boucleServeur(int socketEcoute)
             int lus = traiterPacket(client1, client2, 1);
             if (lus <= 0)
             {
-                printf("✗ Client 1 (%s) déconnecté.\n", inet_ntoa(client1->addr.sin_addr));
+                printf("Client 1 (%s) déconnecté.\n", inet_ntoa(client1->addr.sin_addr));
                 close(client1->socket);
                 free(client1);
                 client1 = NULL;
-                printf("ℹ️  Serveur prêt à accepter de nouvelles connexions.\n");
+                printf("serveur prêt à accepter de nouvelles connexions.\n");
             }
         }
 
@@ -564,11 +564,11 @@ void boucleServeur(int socketEcoute)
             int lus = traiterPacket(client1, client2, 2);
             if (lus <= 0)
             {
-                printf("✗ Client 2 (%s) déconnecté.\n", inet_ntoa(client2->addr.sin_addr));
+                printf("Client 2 (%s) déconnecté.\n", inet_ntoa(client2->addr.sin_addr));
                 close(client2->socket);
                 free(client2);
                 client2 = NULL;
-                printf("ℹ️  Serveur prêt à accepter de nouvelles connexions.\n");
+                printf("Serveur prêt à accepter de nouvelles connexions.\n");
             }
         }
 

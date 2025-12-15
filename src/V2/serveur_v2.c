@@ -89,7 +89,7 @@ int envoyerPacket(int sock, int destinataire, const char *msg)
     int sent = send(sock, buffer, sizeof(Packet), 0);
     if (sent > 0)
     {
-        printf("[SERVEUR] ENVOI → Socket %d | Dest=%d | Message='%s'\n", 
+        printf("[SERVEUR] ENVOI -> Socket %d | Dest=%d | Message='%s'\n", 
                sock, destinataire, msg);
     }
     return sent;
@@ -150,7 +150,7 @@ int traiterMessage(ClientData *expediteur, ClientData *destinataire)
     }
 
     // RELAI PUR : transférer le message au destinataire
-    printf("[SERVEUR] RELAI: C%d → C%d | '%s'\n", 
+    printf("[SERVEUR] RELAI: C%d -> C%d | '%s'\n", 
            expediteur->id, destinataire->id, p.message);
     
     if (envoyerPacket(destinataire->socket, expediteur->id, p.message) <= 0)

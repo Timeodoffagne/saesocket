@@ -86,17 +86,23 @@ const char *recevoirMessage(int sock)
 
     return buffer;
 }
-
+// =====================================================
+//  FONCTION : nettoyer l'écran
+// =====================================================
 void clearScreen()
 {
     printf("\033[2J\033[H");
 }
+
+// =====================================================
+//  FONCTION : afficher le pendu selon l'état
+// =====================================================
 void afficherLePendu(const char *state)
 {
     const char *try_paths[] = {
-        "../../assets/pendu.txt", /* when running from src/V0 */
-        "../assets/pendu.txt",    /* when running from src/ */
-        "assets/pendu.txt"        /* when running from project root */
+        "../../assets/pendu.txt", /* quand on le lance depuis /src/V0 */
+        "../assets/pendu.txt",    /* quand on le lance depuis /src/ */
+        "assets/pendu.txt"        /* quand on le lance depuis / */
     };
     FILE *file = NULL;
     int used_index = -1;
@@ -118,7 +124,7 @@ void afficherLePendu(const char *state)
     }
     else
     {
-        /* optional debug info */
+        // optional debug info
         // printf("Chargement de pendu depuis : %s\n", try_paths[used_index]);
     }
 
@@ -128,67 +134,23 @@ void afficherLePendu(const char *state)
     int debut = 0;
     int fin = 0;
 
-    switch (stade)
-    {
-    case 10:
-        debut = 0;
-        fin = 32;
-        break;
+    switch (stade) {
+        case 10: debut = 0; fin = 32; break;
+        case 9: debut = 32; fin = 64; break;
+        case 8: debut = 64; fin = 96; break;
+        case 7: debut = 96; fin = 128; break;
+        case 6: debut = 128; fin = 160; break;
+        case 5: debut = 160; fin = 192; break;
+        case 4: debut = 192; fin = 224; break;
+        case 3: debut = 224; fin = 256; break;
+        case 2: debut = 256; fin = 288; break;
+        case 1: debut = 288; fin = 320; break;
+        case 0: debut = 320; fin = 352; break;
 
-    case 9:
-        debut = 32;
-        fin = 64;
-        break;
-
-    case 8:
-        debut = 64;
-        fin = 96;
-        break;
-
-    case 7:
-        debut = 96;
-        fin = 128;
-        break;
-
-    case 6:
-        debut = 128;
-        fin = 160;
-        break;
-
-    case 5:
-        debut = 160;
-        fin = 192;
-        break;
-
-    case 4:
-        debut = 192;
-        fin = 224;
-        break;
-
-    case 3:
-        debut = 224;
-        fin = 256;
-        break;
-
-    case 2:
-        debut = 256;
-        fin = 288;
-        break;
-
-    case 1:
-        debut = 288;
-        fin = 320;
-        break;
-
-    case 0:
-        debut = 320;
-        fin = 352;
-        break;
-
-    default:
-        printf("[DEBUG] Stade invalide : %d\n", stade);
-        fclose(file);
-        return;
+        default:
+            printf("[DEBUG] Stade invalide : %d\n", stade);
+            fclose(file);
+            return;
     }
 
     // Saute les lignes jusqu'au bloc voulu
@@ -234,7 +196,9 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         // Réception du mot masqué
         motCache = recevoirMessage(sock);
         clearScreen();
-        printf("--------------------=== Jeu du pendu V0 ===--------------------");
+        printf("\n|=======================================================|\n");
+        printf("|              PARTIE EN COURS                           |\n");
+        printf("|========================================================|\n");
         // printf("[DEBUG] motCache = %s\n", motCache);
         if (strcmp(motCache, "END") != 0)
         {
@@ -256,9 +220,13 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
 
     // --- Fin du jeu ---
     if (strcmp(reponse, "VICTOIRE") == 0) {
-    printf("\n!!! Gagné !!!\n\n");
+        printf("\n|================================|");
+        printf("\n|          VICTOIRE !            |");
+        printf("\n|================================|\n\n");
     } else {
-        printf("\n!!! Perdu !!!\n\n");
+        printf("\n|================================|");
+        printf("\n|          DÉFAITE...            |");
+        printf("\n|================================|\n\n");
 
         FILE *file = NULL;
         const char *paths[] = {
@@ -277,7 +245,7 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         }
 
         if (file == NULL) {
-            perror("Impossible d'ouvrir pendu.txt");
+            fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt.\n");
             return;
         }
 
@@ -314,7 +282,7 @@ void boucleClient(int sock, const char *ip_dest)
         // Saisie utilisateur
         printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start' pour jouer au pendu V0) : ");
         fgets(buffer, sizeof(buffer), stdin);
-        buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
+        buffer[strcspn(buffer, "\n")] = 0;
 
         if (strcmp(buffer, "exit") == 0)
         {
@@ -354,7 +322,7 @@ int main(int argc, char *argv[])
 {
     if (argc < 3)
     {
-        printf("USAGE : %s ip port\n", argv[0]);
+        // printf("USAGE : %s ip port\n", argv[0]);
         return EXIT_FAILURE;
     }
 

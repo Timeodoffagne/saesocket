@@ -6,7 +6,7 @@
 #include <string.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <ctype.h> // Pour toupper et isalpha
+#include <ctype.h>
 
 #define LG_MESSAGE 256
 #define MAX_ESSAIS 10
@@ -19,18 +19,15 @@ typedef struct
 
 typedef struct
 {
-    int monRole; // 1 (Choix du mot), 2 (Devineur)
+    int monRole;
     int essaisRestants;
     char motSecret[LG_MESSAGE];
-    char motMasque[LG_MESSAGE * 2]; // Le mot masqué a des espaces: "_ _ _"
-    char lettresJouees[27];         // 26 lettres + '\0'
+    char motMasque[LG_MESSAGE * 2];
+    char lettresJouees[27];
 } GameState;
 
 GameState currentState;
 
-// =====================================================
-//  FONCTION : création + connexion socket
-// =====================================================
 int creationDeSocket(const char *ip_dest, int port_dest)
 {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -64,9 +61,6 @@ int creationDeSocket(const char *ip_dest, int port_dest)
     return sock;
 }
 
-// =====================================================
-//  FONCTION : envoyer un packet
-// =====================================================
 int envoyerPacket(int sock, int destinataire, const char *msg)
 {
     Packet p;
@@ -91,9 +85,6 @@ int envoyerPacket(int sock, int destinataire, const char *msg)
     return sent;
 }
 
-// =====================================================
-//  FONCTION : recevoir une réponse du serveur
-// =====================================================
 int recevoirPacket(int sock, Packet *p)
 {
     char buffer[sizeof(int) + LG_MESSAGE];
@@ -116,20 +107,13 @@ int recevoirPacket(int sock, Packet *p)
     return rec;
 }
 
-// =====================================================
-//  FONCTION : nettoyer l'écran
-// =====================================================
 void clearScreen()
 {
     printf("\033[2J\033[H");
 }
 
-// =====================================================
-//  FONCTION : afficher le pendu selon l'état
-// =====================================================
 void afficherLePendu(const char *state)
 {
-    // Utilisation de la fonction du client V2 pour les chemins relatifs
     const char *try_paths[] = {
         "../../assets/pendu.txt",
         "../assets/pendu.txt",
@@ -143,7 +127,7 @@ void afficherLePendu(const char *state)
     }
     if (!file)
     {
-        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt. Assurez-vous qu'il est accessible via un des chemins: '../../assets/pendu.txt', '../assets/pendu.txt', 'assets/pendu.txt'.\n");
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt.\n");
         return;
     }
 
@@ -151,10 +135,7 @@ void afficherLePendu(const char *state)
     char line[256];
     int debut = 0, fin = 0;
 
-    // Adapter l'affichage à MAX_ESSAIS = 10 (11 stades, 0 à 10)
-    // Chaque stade a 32 lignes dans le fichier pendu.txt (352 lignes / 11 stades = 32 lignes/stade)
     int offset = (MAX_ESSAIS - stade) * 32;
-
     debut = offset;
     fin = offset + 32;
 
@@ -171,42 +152,32 @@ void afficherLePendu(const char *state)
     fclose(file);
 }
 
-// =====================================================
-//  FONCTION : LOGIQUE DE JEU C1 (Maître du Jeu)
-// =====================================================
-// Met à jour GameState en fonction de la lettre, retourne le feedback
 char *traiterLettre(char lettre)
 {
     static char feedback[LG_MESSAGE];
     int lettre_trouvee = 0;
 
-    lettre = toupper(lettre); // Traiter en majuscule
+    lettre = toupper(lettre);
 
-    // 1. Déjà jouée
     if (strchr(currentState.lettresJouees, lettre))
     {
         snprintf(feedback, LG_MESSAGE, "La lettre '%c' a déjà été jouée.", lettre);
         return feedback;
     }
 
-    // 2. Ajouter la lettre à la liste jouée
     size_t len = strlen(currentState.lettresJouees);
     currentState.lettresJouees[len] = lettre;
     currentState.lettresJouees[len + 1] = '\0';
 
-    // 3. Remplacer les "_" dans le mot masqué
-    // Le mot masqué a le format "C _ O _ D _ E" (caractère + espace)
     for (int i = 0; i < strlen(currentState.motSecret); i++)
     {
         if (toupper(currentState.motSecret[i]) == lettre)
         {
-            // Position dans motMasque est i*2
             currentState.motMasque[i * 2] = currentState.motSecret[i];
             lettre_trouvee = 1;
         }
     }
 
-    // 4. Mettre à jour les essais
     if (lettre_trouvee)
     {
         snprintf(feedback, LG_MESSAGE, "BRAVO ! La lettre '%c' est correcte.", lettre);
@@ -220,17 +191,13 @@ char *traiterLettre(char lettre)
     return feedback;
 }
 
-// =====================================================
-//  FONCTION : jeu du pendu V2
-//  RETOURNE 1 si REPLAY est demandé, 0 sinon
-// =====================================================
 int jeuDuPenduV2(int sock, int ID_CLIENT)
 {
     Packet p;
     int ret;
     int partie_finie = 0;
 
-    // Réinitialiser l'état pour la nouvelle partie
+    // Réinitialiser l'état
     currentState.monRole = ID_CLIENT;
     currentState.essaisRestants = MAX_ESSAIS;
     memset(currentState.motSecret, 0, LG_MESSAGE);
@@ -251,15 +218,15 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
 
         strncpy(currentState.motSecret, mot, LG_MESSAGE);
 
-        // Créer le mot masqué initial (ex: A _ B _ )
+        // Créer le mot masqué initial
         for (size_t i = 0; i < strlen(mot); i++)
         {
             currentState.motMasque[i * 2] = '_';
             currentState.motMasque[i * 2 + 1] = ' ';
         }
-        currentState.motMasque[strlen(mot) * 2] = '\0'; // Fin de chaîne
+        currentState.motMasque[strlen(mot) * 2] = '\0';
 
-        // Envoyer le paquet d'initialisation à C2 (via S)
+        // Envoyer le paquet d'initialisation à C2
         char init_msg[LG_MESSAGE];
         snprintf(init_msg, LG_MESSAGE, "READY_WORD:%s|%d", currentState.motMasque, currentState.essaisRestants);
         envoyerPacket(sock, ID_CLIENT, init_msg);
@@ -271,14 +238,16 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
         printf("\n|--- VOUS ÊTES LE DEVINEUR (C2) ---|\n");
         printf("En attente du mot secret du Maître du Jeu (C1)...\n");
 
-        // Attendre le paquet READY_WORD de C1 (source=1)
-        while (1)
+        // CORRECTION: Attendre spécifiquement READY_WORD, ignorer les autres messages
+        int ready_word_recu = 0;
+        while (!ready_word_recu)
         {
             ret = recevoirPacket(sock, &p);
             if (ret <= 0)
                 return 0;
 
-            if (p.destinataire == 1 && strstr(p.message, "READY_WORD:") == p.message)
+            // Vérifier si c'est le message READY_WORD venant de C1
+            if (strstr(p.message, "READY_WORD:") == p.message)
             {
                 char temp_msg[LG_MESSAGE];
                 strncpy(temp_msg, p.message + strlen("READY_WORD:"), LG_MESSAGE);
@@ -292,7 +261,7 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
                     currentState.essaisRestants = atoi(token);
 
                 printf("Partie lancée! Mot: %s (Essais: %d)\n", currentState.motMasque, currentState.essaisRestants);
-                break;
+                ready_word_recu = 1;
             }
             else if (strcmp(p.message, "PARTNER_DISCONNECTED") == 0)
             {
@@ -301,7 +270,8 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
             }
             else
             {
-                printf("Message serveur : %s\n", p.message);
+                // Ignorer les messages parasites (REPLAY, REPLAY_START, etc.)
+                printf("[DEBUG] Message ignoré en attente de READY_WORD: %s\n", p.message);
             }
         }
     }
@@ -321,7 +291,7 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
         sprintf(essais_str, "%d", currentState.essaisRestants);
         afficherLePendu(essais_str);
 
-        if (currentState.monRole == 2) // C2 : Devineur -> envoie sa lettre et attend
+        if (currentState.monRole == 2) // C2 : Devineur
         {
             printf("\nC'est votre tour (C2) : Deviner.\n");
             printf("Votre lettre : ");
@@ -339,23 +309,20 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
                 continue;
             }
 
-            // Envoyer la lettre (le serveur la relaye à C1)
             char lettre[2] = {toupper(buffer[0]), '\0'};
             envoyerPacket(sock, ID_CLIENT, lettre);
 
-            // Attendre la réponse de C1 (via S)
             printf("\nEn attente de la validation du Maître du Jeu (C1)...\n");
 
             ret = recevoirPacket(sock, &p);
             if (ret <= 0)
                 return 0;
 
-            if (p.destinataire == 1 && strstr(p.message, "UPDATE:") == p.message)
+            if (strstr(p.message, "UPDATE:") == p.message)
             {
                 char temp_msg[LG_MESSAGE];
                 strncpy(temp_msg, p.message + strlen("UPDATE:"), LG_MESSAGE);
 
-                // Parser UPDATE:<Mot Caché>|<Essais>|<Feedback>|<Lettres Jouées>
                 char *token = strtok(temp_msg, "|");
                 if (token)
                     strncpy(currentState.motMasque, token, sizeof(currentState.motMasque));
@@ -368,13 +335,10 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
                 if (feedback_token)
                     printf("-> RÉSULTAT : %s\n", feedback_token);
 
-                // ********** CORRECTION C2 : MISE À JOUR DES LETTRES JOUÉES **********
                 char *lettres_jouees_token = strtok(NULL, "|");
                 if (lettres_jouees_token)
                     strncpy(currentState.lettresJouees, lettres_jouees_token, sizeof(currentState.lettresJouees));
-                // *******************************************************************
 
-                // Mettre à jour l'état de fin de partie si C1 l'a détecté
                 if (currentState.essaisRestants <= 0 || strstr(currentState.motMasque, "_") == NULL)
                 {
                     partie_finie = 1;
@@ -382,7 +346,7 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
 
                 sleep(2);
             }
-            else if (p.destinataire == 1 && strstr(p.message, "END_GAME:") == p.message)
+            else if (strstr(p.message, "END_GAME:") == p.message)
             {
                 partie_finie = 1;
             }
@@ -392,7 +356,7 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
                 return 0;
             }
         }
-        else // C1 : Maître du Jeu -> attend une lettre, traite, puis envoie l'état
+        else // C1 : Maître du Jeu
         {
             printf("\nEn attente de la lettre du Devineur (C2)...\n");
 
@@ -400,30 +364,25 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
             if (ret <= 0)
                 return 0;
 
-            if (p.destinataire == 2 && strlen(p.message) == 1 && isalpha(p.message[0]))
+            if (strlen(p.message) == 1 && isalpha(p.message[0]))
             {
                 char lettre = p.message[0];
                 printf("C2 joue : %c\n", lettre);
 
                 char *feedback = traiterLettre(lettre);
 
-                // Vérifier la condition de victoire/défaite (C1 seul responsable)
                 int victoire = (strstr(currentState.motMasque, "_") == NULL);
                 int defaite = (currentState.essaisRestants <= 0);
 
                 partie_finie = victoire || defaite;
 
-                // Envoi de la mise à jour à C2
                 char update_msg[LG_MESSAGE];
-                // ********** CORRECTION C1 : AJOUT DES LETTRES JOUÉES **********
-                // Nouveau format: UPDATE:<Mot Masqué>|<Essais>|<Feedback>|<Lettres Jouées>
                 snprintf(update_msg, LG_MESSAGE, "UPDATE:%s|%d|%s|%s",
                          currentState.motMasque,
                          currentState.essaisRestants,
                          feedback,
                          currentState.lettresJouees);
                 envoyerPacket(sock, ID_CLIENT, update_msg);
-                // *************************************************************
 
                 if (partie_finie)
                 {
@@ -451,8 +410,7 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
     printf("|              PARTIE TERMINÉE                           |\n");
     printf("|========================================================|\n\n");
 
-    // Afficher le résultat final
-    if (currentState.monRole == 1) // C1 (Maître) a déjà la logique
+    if (currentState.monRole == 1)
     {
         if (strstr(currentState.motMasque, "_") == NULL)
         {
@@ -463,17 +421,30 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
             printf("RÉSULTAT: Le devineur (C2) a PERDU ! Mot secret: %s\n", currentState.motSecret);
         }
     }
-    else // C2 (Devineur) doit attendre le message de fin de jeu
+    else
     {
-        // Si le dernier message reçu n'est PAS un message de fin de jeu, on attend le message de fin de jeu de C1.
+        // CORRECTION: Attendre END_GAME si pas déjà reçu
         if (strstr(p.message, "END_GAME:") == NULL)
         {
-            ret = recevoirPacket(sock, &p);
-            if (ret <= 0)
-                return 0;
+            int end_game_recu = 0;
+            while (!end_game_recu)
+            {
+                ret = recevoirPacket(sock, &p);
+                if (ret <= 0)
+                    return 0;
+                
+                if (strstr(p.message, "END_GAME:") == p.message)
+                {
+                    end_game_recu = 1;
+                }
+                else
+                {
+                    printf("[DEBUG] Message ignoré en attente de END_GAME: %s\n", p.message);
+                }
+            }
         }
 
-        if (p.destinataire == 1 && strstr(p.message, "END_GAME:") == p.message)
+        if (strstr(p.message, "END_GAME:") == p.message)
         {
             char temp_msg[LG_MESSAGE];
             strncpy(temp_msg, p.message + strlen("END_GAME:"), LG_MESSAGE);
@@ -486,27 +457,24 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
         }
     }
 
-    // ================== PHASE DE REJEU ET SWAP ==================
+    // ================== PHASE DE REJEU ==================
     printf("\n\nVoulez-vous rejouer (et inverser les rôles) ? (y/n) ");
+    fflush(stdout);
     char line[4];
     if (fgets(line, sizeof(line), stdin) && (line[0] == 'y' || line[0] == 'Y'))
     {
         envoyerPacket(sock, ID_CLIENT, "REPLAY");
         printf("Demande de rejeu envoyée. Attente de l'adversaire ou du serveur...\n");
-        return 1; // REPLAY demandé
+        return 1;
     }
 
-    return 0; // REPLAY non demandé
+    return 0;
 }
 
-// =====================================================
-//  BOUCLE PRINCIPALE DU CLIENT
-// =====================================================
 void boucleClient(int sock, int *ID_CLIENT)
 {
     char buffer[256];
 
-    // Recevoir l'ID du serveur au début
     Packet p;
     int ret = recevoirPacket(sock, &p);
     if (ret > 0)
@@ -545,15 +513,14 @@ void boucleClient(int sock, int *ID_CLIENT)
         if (strcmp(buffer, "exit") == 0)
         {
             envoyerPacket(sock, *ID_CLIENT, "exit");
-            printf("Fermeture du client.\n");
+            printf("👋 Fermeture du client.\n");
             break;
         }
         else if (strcmp(buffer, "start") == 0)
         {
             envoyerPacket(sock, *ID_CLIENT, "start");
-            printf("Recherche d'une partie...\n");
+            printf("🎮 Recherche d'une partie...\n");
 
-            // Le client est dans un état d'attente de début de partie ou de rejeu
             while (1)
             {
                 ret = recevoirPacket(sock, &p);
@@ -565,61 +532,59 @@ void boucleClient(int sock, int *ID_CLIENT)
 
                 if (strcmp(p.message, "start") == 0)
                 {
-                    printf("Adversaire trouvé ! Début de la partie...\n");
+                    printf("✅ Adversaire trouvé ! Début de la partie...\n");
                     sleep(1);
                     if (jeuDuPenduV2(sock, *ID_CLIENT) == 1)
                     {
-                        envoyerPacket(sock, *ID_CLIENT, "REPLAY"); // Renvoyer REPLAY si le joueur l'a demandé
-                        continue;                                  // Revenir en attente de réponse du serveur pour le REPLAY
+                        // Attendre la réponse REPLAY_START
+                        continue;
                     }
-                    break; // Partir au menu si pas de rejeu
+                    break;
                 }
                 else if (strstr(p.message, "REPLAY_START:") == p.message)
                 {
                     char *id_str = p.message + strlen("REPLAY_START:");
                     int new_id = atoi(id_str);
                     *ID_CLIENT = new_id;
-                    printf("Rôles inversés ! Vous êtes maintenant le joueur #%d. Nouvelle partie...\n", *ID_CLIENT);
+                    printf("🔄 Rôles inversés ! Vous êtes maintenant le joueur #%d.\n", *ID_CLIENT);
                     sleep(1);
+                    
                     if (jeuDuPenduV2(sock, *ID_CLIENT) == 1)
                     {
-                        envoyerPacket(sock, *ID_CLIENT, "REPLAY");
-                        continue; // Rester dans la boucle d'attente
+                        // Attendre la réponse REPLAY_START
+                        continue;
                     }
-                    break; // Partir au menu si pas de rejeu
+                    break;
                 }
                 else if (strcmp(p.message, "REPLAY") == 0)
                 {
-                    // L'adversaire a demandé de rejouer
-                    printf("L'adversaire a demandé une nouvelle partie. Voulez-vous accepter ? (y/n) ");
+                    printf("⏳ L'adversaire a demandé une nouvelle partie. Voulez-vous accepter ? (y/n) ");
                     fflush(stdout);
                     char replay_line[4];
                     if (fgets(replay_line, sizeof(replay_line), stdin) && (replay_line[0] == 'y' || replay_line[0] == 'Y'))
                     {
-                        envoyerPacket(sock, *ID_CLIENT, "REPLAY"); // Renvoyer REPLAY au serveur (qui va déclencher le swap)
-                        printf("Demande de rejeu acceptée. Attente du serveur...\n");
-                        continue; // Rester en attente du REPLAY_START
+                        envoyerPacket(sock, *ID_CLIENT, "REPLAY");
+                        printf("✅ Demande de rejeu acceptée. Attente du serveur...\n");
+                        continue;
                     }
                     else
                     {
-                        printf("Rejeu refusé.\n");
-                        break; // Revenir au menu principal
+                        printf("❌ Rejeu refusé.\n");
+                        break;
                     }
                 }
                 else if (strcmp(p.message, "EN_ATTENTE_ADVERSAIRE") == 0)
                 {
-                    printf("En attente de l'adversaire...\n");
-                    sleep(2);
+                    printf("⏳ En attente de l'adversaire...\n");
                 }
                 else
                 {
-                    printf("Message serveur inattendu: %s\n", p.message);
+                    printf("[INFO] Message serveur: %s\n", p.message);
                 }
-            } // Fin de la boucle d'attente de jeu
+            }
         }
         else
         {
-            // Message quelconque (hors start/exit)
             envoyerPacket(sock, *ID_CLIENT, buffer);
 
             ret = recevoirPacket(sock, &p);
@@ -634,9 +599,6 @@ void boucleClient(int sock, int *ID_CLIENT)
     }
 }
 
-// =====================================================
-//  MAIN
-// =====================================================
 int main(int argc, char *argv[])
 {
     int ID_CLIENT = 0;

@@ -100,9 +100,9 @@ void clearScreen()
 void afficherLePendu(const char *state)
 {
     const char *try_paths[] = {
-        "../../assets/pendu.txt", /* when running from src/V0 */
-        "../assets/pendu.txt",    /* when running from src/ */
-        "assets/pendu.txt"        /* when running from project root */
+        "../../assets/pendu.txt", /* quand on le lance depuis /src/V0 */
+        "../assets/pendu.txt",    /* quand on le lance depuis /src/ */
+        "assets/pendu.txt"        /* quand on le lance depuis / */
     };
     FILE *file = NULL;
     int used_index = -1;
@@ -124,7 +124,7 @@ void afficherLePendu(const char *state)
     }
     else
     {
-        /* optional debug info */
+        // optional debug info
         // printf("Chargement de pendu depuis : %s\n", try_paths[used_index]);
     }
 
@@ -282,7 +282,7 @@ void boucleClient(int sock, const char *ip_dest)
         // Saisie utilisateur
         printf("\nEntrez un message à envoyer au serveur ('exit' pour quitter et 'start' pour jouer au pendu V0) : ");
         fgets(buffer, sizeof(buffer), stdin);
-        buffer[strcspn(buffer, "\n")] = 0; // Retirer \n
+        buffer[strcspn(buffer, "\n")] = 0;
 
         if (strcmp(buffer, "exit") == 0)
         {
@@ -322,7 +322,7 @@ int main(int argc, char *argv[])
 {
     if (argc < 3)
     {
-        printf("USAGE : %s ip port\n", argv[0]);
+        // printf("USAGE : %s ip port\n", argv[0]);
         return EXIT_FAILURE;
     }
 

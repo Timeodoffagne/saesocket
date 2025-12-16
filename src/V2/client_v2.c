@@ -28,6 +28,9 @@ typedef struct
 
 GameState currentState;
 
+// =====================================================
+//  FONCTION : création + connexion socket
+// =====================================================
 int creationDeSocket(const char *ip_dest, int port_dest)
 {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -61,6 +64,9 @@ int creationDeSocket(const char *ip_dest, int port_dest)
     return sock;
 }
 
+// =====================================================
+//  FONCTION : envoyer un packet
+// =====================================================
 int envoyerPacket(int sock, int destinataire, const char *msg)
 {
     Packet p;
@@ -85,6 +91,9 @@ int envoyerPacket(int sock, int destinataire, const char *msg)
     return sent;
 }
 
+// =====================================================
+//  FONCTION : recevoir une réponse du serveur
+// =====================================================
 int recevoirPacket(int sock, Packet *p)
 {
     char buffer[sizeof(int) + LG_MESSAGE];
@@ -107,17 +116,25 @@ int recevoirPacket(int sock, Packet *p)
     return rec;
 }
 
+// =====================================================
+//  FONCTION : nettoyer l'écran
+// =====================================================
 void clearScreen()
 {
     printf("\033[2J\033[H");
 }
 
+// =====================================================
+//  FONCTION : afficher le pendu selon l'état
+// =====================================================
 void afficherLePendu(const char *state)
 {
     const char *try_paths[] = {
         "../../assets/pendu.txt",
         "../assets/pendu.txt",
         "assets/pendu.txt"};
+
+    // Test des trois chemins
     FILE *file = NULL;
     for (int i = 0; i < 3; ++i)
     {
@@ -204,7 +221,9 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
     memset(currentState.motMasque, 0, LG_MESSAGE * 2);
     memset(currentState.lettresJouees, 0, sizeof(currentState.lettresJouees));
 
-    // ================== PHASE D'INITIALISATION ==================
+// =====================================================
+//  PHASE D'INITIALISATION
+// =====================================================
     if (currentState.monRole == 1) // C1 : Maître du Jeu
     {
         printf("\n|--- VOUS ÊTES LE MAÎTRE DU JEU (C1) ---|\n");
@@ -276,7 +295,9 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
         }
     }
 
-    // ================== BOUCLE DE JEU ==================
+// =====================================================
+//  BOUCLE DE JEU
+// =====================================================
     while (currentState.essaisRestants > 0 && !partie_finie)
     {
         clearScreen();
@@ -404,7 +425,9 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
         }
     }
 
-    // ================== PHASE DE FIN DE PARTIE ==================
+// =====================================================
+//  PHASE DE FIN DE PARTIE
+// =====================================================
     clearScreen();
     printf("|========================================================|\n");
     printf("|              PARTIE TERMINÉE                           |\n");
@@ -457,7 +480,9 @@ int jeuDuPenduV2(int sock, int ID_CLIENT)
         }
     }
 
-    // ================== PHASE DE REJEU ==================
+// =====================================================
+//  PHASE DE REJEU
+// =====================================================
     printf("\n\nVoulez-vous rejouer (et inverser les rôles) ? (y/n) ");
     fflush(stdout);
     char line[4];
@@ -564,18 +589,18 @@ void boucleClient(int sock, int *ID_CLIENT)
                     if (fgets(replay_line, sizeof(replay_line), stdin) && (replay_line[0] == 'y' || replay_line[0] == 'Y'))
                     {
                         envoyerPacket(sock, *ID_CLIENT, "REPLAY");
-                        printf("✅ Demande de rejeu acceptée. Attente du serveur...\n");
+                        printf("Demande de rejeu acceptée. Attente du serveur...\n");
                         continue;
                     }
                     else
                     {
-                        printf("❌ Rejeu refusé.\n");
+                        printf("Rejeu refusé.\n");
                         break;
                     }
                 }
                 else if (strcmp(p.message, "EN_ATTENTE_ADVERSAIRE") == 0)
                 {
-                    printf("⏳ En attente de l'adversaire...\n");
+                    printf("En attente de l'adversaire...\n");
                 }
                 else
                 {
@@ -599,6 +624,9 @@ void boucleClient(int sock, int *ID_CLIENT)
     }
 }
 
+// =====================================================
+//  MAIN
+// =====================================================
 int main(int argc, char *argv[])
 {
     int ID_CLIENT = 0;

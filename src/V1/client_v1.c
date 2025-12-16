@@ -121,6 +121,7 @@ void afficherLePendu(const char *state)
         "../assets/pendu.txt",
         "assets/pendu.txt"
     };
+    // Test des trois chemins
     FILE *file = NULL;
     for (int i = 0; i < 3; ++i)
     {
@@ -129,7 +130,9 @@ void afficherLePendu(const char *state)
     }
     if (!file)
     {
-        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt.\n");
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier pendu.txt. Chemins essayés:\n");
+        for (int i = 0; i < (int)(sizeof(try_paths) / sizeof(try_paths[0])); ++i)
+            fprintf(stderr, "  - %s\n", try_paths[i]);
         return;
     }
 
@@ -137,28 +140,29 @@ void afficherLePendu(const char *state)
     char line[256];
     int debut = 0, fin = 0;
 
-    switch (stade)
-    {
-    case 10: debut = 0; fin = 32; break;
-    case 9: debut = 32; fin = 64; break;
-    case 8: debut = 64; fin = 96; break;
-    case 7: debut = 96; fin = 128; break;
-    case 6: debut = 128; fin = 160; break;
-    case 5: debut = 160; fin = 192; break;
-    case 4: debut = 192; fin = 224; break;
-    case 3: debut = 224; fin = 256; break;
-    case 2: debut = 256; fin = 288; break;
-    case 1: debut = 288; fin = 320; break;
-    case 0: debut = 320; fin = 352; break;
-    default:
-        printf("[DEBUG] Stade invalide : %d\n", stade);
-        fclose(file);
-        return;
+    switch (stade) {
+        case 10: debut = 0; fin = 32; break;
+        case 9: debut = 32; fin = 64; break;
+        case 8: debut = 64; fin = 96; break;
+        case 7: debut = 96; fin = 128; break;
+        case 6: debut = 128; fin = 160; break;
+        case 5: debut = 160; fin = 192; break;
+        case 4: debut = 192; fin = 224; break;
+        case 3: debut = 224; fin = 256; break;
+        case 2: debut = 256; fin = 288; break;
+        case 1: debut = 288; fin = 320; break;
+        case 0: debut = 320; fin = 352; break;
+    
+        default:
+            printf("[DEBUG] Stade invalide : %d\n", stade);
+            fclose(file);
+            return;
     }
 
+    // Saute les lignes jusqu'au bloc voulu
     for (int i = 0; i < debut; i++)
         fgets(line, sizeof(line), file);
-
+    // Affiche le bloc complet
     for (int i = debut; i < fin; i++)
     {
         if (fgets(line, sizeof(line), file) == NULL)
@@ -199,7 +203,7 @@ void jeuDuPenduV1(int sock, int ID_CLIENT)
         int currentID = p.destinataire;
         printf("[DEBUG] Mot reçu: '%s', joueur actif: %d\n", motCache, currentID);
 
-        // Si "END" -> le serveur annonce la fin
+        // Si "END" → le serveur annonce la fin
         if (strcmp(motCache, "END") == 0)
         {
             printf("[DEBUG] Fin de partie détectée.\n");

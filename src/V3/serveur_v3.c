@@ -524,7 +524,7 @@ void boucleServeur(int socketEcoute)
                     }
                     
                     // L'enfant exécute la logique de jeu
-                    traterJeu(client_maitre, client_devineur); 
+                    traiterJeu(client_maitre, client_devineur); 
                     
                     // Note: traiterJeu appelle exit(EXIT_SUCCESS)
                     // (Les free() des structures sont dans traiterJeu)

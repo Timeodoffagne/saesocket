@@ -13,7 +13,8 @@
 
 #define PORT 5000
 #define LG_MESSAGE 256
-#define MAX_CLIENTS_EN_ATTENTE 2
+// Augmentation de la capacité pour la file d'attente du serveur principal
+#define MAX_CLIENTS_EN_ATTENTE 10 
 
 // =====================================================
 // STRUCTURES
@@ -33,11 +34,10 @@ typedef struct
 } ClientData;
 
 // Tableau des clients en attente de partie (pour le processus parent)
-ClientData *fileAttente[MAX_CLIENTS_EN_ATTENTE] = {NULL, NULL};
-
+ClientData *fileAttente[MAX_CLIENTS_EN_ATTENTE] = {NULL}; // Initialisation correcte
 
 // =====================================================
-// OUTILS COMMUNICATION (Identique à V2)
+// OUTILS COMMUNICATION (Identique)
 // =====================================================
 
 void envoyerPacket(int sock, int source_id, const char *msg)
@@ -84,19 +84,17 @@ int recevoirPacket(int sock, Packet *p)
 
 
 // =====================================================
-// LOGIQUE JEU DE LA PARTIE V3 (Relais Multi-Manche)
+// LOGIQUE JEU DE LA PARTIE V3 (Relais Multi-Manche - Pas de changement)
 // =====================================================
-// Cette fonction gère une partie complète, y compris les rejeux/swaps
+
 void traiterJeu(ClientData *c1, ClientData *c2)
 {
     Packet p;
     int ret;
     
-    // Pointeur pour les rôles actuels, qui seront swappés en cas de rejeu
     ClientData *maitre;
     ClientData *devineur;
     
-    // Assigner les rôles initiaux (déjà fait par le parent)
     maitre = (c1->id == 1) ? c1 : c2;
     devineur = (c1->id == 2) ? c1 : c2;
     
@@ -105,16 +103,11 @@ void traiterJeu(ClientData *c1, ClientData *c2)
            
     int continuer_partie = 1;
     
-    // Boucle de jeu/rejeu dans le processus enfant
     while (continuer_partie)
     {
-        // ================================================================
         // PHASE 1 : INITIALISATION (RELAIS DU READY_WORD)
-        // Correction de l'erreur de communication immédiate.
-        // ================================================================
         printf("Serveur [%d]: Attente de READY_WORD de C%d (Maître).\n", getpid(), maitre->id);
         
-        // C1 (Maître) choisit son mot et l'envoie (READY_WORD)
         ret = recevoirPacket(maitre->socket, &p);
         
         if (ret <= 0 || strstr(p.message, "READY_WORD:") != p.message)
@@ -124,32 +117,33 @@ void traiterJeu(ClientData *c1, ClientData *c2)
             goto end_game; 
         }
         
-        // Relais de READY_WORD à C2 (Devineur)
         printf("Serveur [%d]: Relais de READY_WORD à C%d (Devineur).\n", getpid(), devineur->id);
         envoyerPacket(devineur->socket, maitre->id, p.message);
         
-        // ================================================================
-        // PHASE 2 : BOUCLE DE JEU (RELAIS DES LETTRES/UPDATES)
-        // ================================================================
+        // PHASE 2 : BOUCLE DE JEU
         int manche_finie = 0;
         while (!manche_finie)
         {
             // 1. Attente de la lettre du devineur (C2)
             ret = recevoirPacket(devineur->socket, &p);
-            if (ret <= 0) 
+            if (ret <= 0 || strcmp(p.message, "exit") == 0) 
             {
                 printf("Serveur [%d]: Devineur (C%d) déconnecté. Fin de partie.\n", getpid(), devineur->id);
                 envoyerPacket(maitre->socket, devineur->id, "PARTNER_DISCONNECTED");
                 goto end_game;
             }
+            if (strcmp(p.message, "REPLAY") == 0) { 
+                devineur->pret = 2;
+                manche_finie = 1;
+                break;
+            }
 
             // Relais de la lettre vers C1.
-            printf("Serveur [%d]: Relais de la lettre de C%d à C%d.\n", getpid(), devineur->id, maitre->id);
             envoyerPacket(maitre->socket, devineur->id, p.message);
             
             // 2. Attente de l'UPDATE de C1 (Maître du Jeu)
             ret = recevoirPacket(maitre->socket, &p);
-            if (ret <= 0)
+            if (ret <= 0 || strcmp(p.message, "exit") == 0)
             {
                 printf("Serveur [%d]: Maître du Jeu (C%d) déconnecté. Fin de partie.\n", getpid(), maitre->id);
                 envoyerPacket(devineur->socket, maitre->id, "PARTNER_DISCONNECTED");
@@ -157,42 +151,39 @@ void traiterJeu(ClientData *c1, ClientData *c2)
             }
 
             // Relais de l'UPDATE vers C2
-            printf("Serveur [%d]: Relais de l'état de C%d à C%d: '%s'\n", getpid(), maitre->id, devineur->id, p.message);
             envoyerPacket(devineur->socket, maitre->id, p.message);
             
-            // 3. Vérifier si l'UPDATE était la fin de partie (END_GAME)
+            // 3. Vérifier si l'UPDATE n'était pas la fin de partie (END_GAME)
             if (strstr(p.message, "END_GAME:") == p.message)
             {
                 manche_finie = 1;
             }
             else
             {
-                // Si la partie est finie, C1 envoie END_GAME immédiatement après UPDATE.
-                // On doit attendre ce second paquet pour le relayer.
+                // Attente de END_GAME (si la partie s'est finie avec ce coup)
                 ret = recevoirPacket(maitre->socket, &p);
-                if (ret > 0 && strstr(p.message, "END_GAME:") == p.message)
-                {
-                    printf("Serveur [%d]: Relais de END_GAME (second message) à C%d: '%s'\n", getpid(), devineur->id, p.message);
-                    envoyerPacket(devineur->socket, maitre->id, p.message);
-                    manche_finie = 1;
-                }
-                else if (ret <= 0) {
+                
+                if (ret <= 0 || strcmp(p.message, "exit") == 0) {
                      printf("Serveur [%d]: Maître du Jeu (C%d) déconnecté après l'UPDATE. Fin de partie.\n", getpid(), maitre->id);
                      envoyerPacket(devineur->socket, maitre->id, "PARTNER_DISCONNECTED");
                      goto end_game;
                 }
+                
+                if (strstr(p.message, "END_GAME:") == p.message)
+                {
+                    envoyerPacket(devineur->socket, maitre->id, p.message);
+                    manche_finie = 1;
+                }
             }
         } // Fin de la boucle de manche
         
-        // ================================================================
         // PHASE 3 : POST-GAME (ATTENTE REPLAY/EXIT)
-        // ================================================================
         
         printf("Serveur [%d]: Fin de manche. Attente des commandes REPLAY/exit...\n", getpid());
         
         int c1_wants_replay = 0;
         int c2_wants_replay = 0;
-
+        
         // Attente REPLAY/exit de C1 (Maître)
         ret = recevoirPacket(maitre->socket, &p);
         if (ret > 0) 
@@ -204,53 +195,53 @@ void traiterJeu(ClientData *c1, ClientData *c2)
         }
         
         // Attente REPLAY/exit de C2 (Devineur)
-        ret = recevoirPacket(devineur->socket, &p);
-        if (ret > 0) 
+        if (devineur->pret != 2) // Si REPLAY n'a pas été envoyé en début de tour
         {
-            if (strcmp(p.message, "REPLAY") == 0) c2_wants_replay = 1;
-            if (strcmp(p.message, "exit") == 0) goto end_game;
+            ret = recevoirPacket(devineur->socket, &p);
+            if (ret > 0) 
+            {
+                if (strcmp(p.message, "REPLAY") == 0) c2_wants_replay = 1;
+                if (strcmp(p.message, "exit") == 0) goto end_game;
+            } else {
+                 goto end_game;
+            }
         } else {
-             goto end_game;
+            c2_wants_replay = 1;
+            devineur->pret = 0; 
         }
         
         if (c1_wants_replay && c2_wants_replay)
         {
             // SWAP ROLES
             ClientData *temp_ptr = maitre;
-            maitre = devineur; // L'ancien Devineur devient le Maître
-            devineur = temp_ptr; // L'ancien Maître devient le Devineur
+            maitre = devineur; 
+            devineur = temp_ptr; 
             
             // Envoyer les messages de swap (REPLAY_START:X)
-            char msg_maitre[LG_MESSAGE];
-            char msg_devineur[LG_MESSAGE];
+            char msg[LG_MESSAGE];
             
-            // Le nouveau maître reçoit son nouvel ID (1)
-            snprintf(msg_maitre, LG_MESSAGE, "REPLAY_START:%d", 1); 
-            // Le nouveau devineur reçoit son nouvel ID (2)
-            snprintf(msg_devineur, LG_MESSAGE, "REPLAY_START:%d", 2);
+            snprintf(msg, LG_MESSAGE, "REPLAY_START:%d", 1); 
+            envoyerPacket(maitre->socket, maitre->id, msg); 
             
-            envoyerPacket(maitre->socket, maitre->id, msg_maitre); 
-            envoyerPacket(devineur->socket, devineur->id, msg_devineur); 
+            snprintf(msg, LG_MESSAGE, "REPLAY_START:%d", 2);
+            envoyerPacket(devineur->socket, devineur->id, msg); 
 
             printf("Serveur [%d]: REPLAY accepté. Rôles inversés : Nouveau Maître C%d, Nouveau Devineur C%d.\n", 
                    getpid(), maitre->id, devineur->id);
-            // La boucle `while (continuer_partie)` recommence (nouvelle manche).
         }
         else
         {
-            continuer_partie = 0; // Sortie de la boucle de jeu/rejeu.
+            continuer_partie = 0; 
         }
         
-    } // Fin de la boucle de jeu/rejeu
+    } 
 
 end_game:
-    // Nettoyage final du processus enfant
-    printf("Serveur [%d]: Fermeture des sockets pour C%d et C%d.\n", getpid(), c1->id, c2->id);
+    printf("Serveur [%d]: Processus enfant terminé. Libération des ressources.\n", getpid());
     close(c1->socket);
     close(c2->socket);
     free(c1);
     free(c2);
-    printf("Serveur [%d]: Processus enfant terminé.\n", getpid());
     exit(EXIT_SUCCESS);
 }
 
@@ -265,7 +256,6 @@ void boucleServeur(int socketEcoute)
     int max_fd;
     int ret;
     
-    // Gérer les processus zombies
     signal(SIGCHLD, SIG_IGN); 
 
     printf("Serveur [%d] prêt à écouter les connexions sur le port %d.\n", getpid(), PORT);
@@ -276,7 +266,7 @@ void boucleServeur(int socketEcoute)
         FD_SET(STDIN_FILENO, &set);
         max_fd = STDIN_FILENO;
 
-        // Ajouter les sockets clients existants à l'ensemble
+        // Ajouter les sockets clients existants à l'ensemble (parcourt toute la file)
         for (int i = 0; i < MAX_CLIENTS_EN_ATTENTE; i++)
         {
             if (fileAttente[i] != NULL)
@@ -296,13 +286,12 @@ void boucleServeur(int socketEcoute)
 
         if (ret < 0)
         {
-            if (errno == EINTR)
-                continue;
+            if (errno == EINTR) continue;
             perror("select");
             break;
         }
 
-        // Gérer l'entrée standard (commande exit du serveur)
+        // Gérer l'entrée standard (exit) - Pas de changement
         if (FD_ISSET(STDIN_FILENO, &set))
         {
             char line[LG_MESSAGE];
@@ -331,8 +320,7 @@ void boucleServeur(int socketEcoute)
         if (FD_ISSET(socketEcoute, &set))
         {
             ClientData *newClient = (ClientData *)malloc(sizeof(ClientData));
-            if (!newClient)
-            {
+            if (!newClient) {
                 perror("malloc");
                 continue;
             }
@@ -340,20 +328,19 @@ void boucleServeur(int socketEcoute)
             socklen_t addrlen = sizeof(newClient->addr);
             newClient->socket = accept(socketEcoute, (struct sockaddr *)&newClient->addr, &addrlen);
 
-            if (newClient->socket < 0)
-            {
+            if (newClient->socket < 0) {
                 perror("accept");
                 free(newClient);
                 continue;
             }
 
-            // Trouver une place dans la file d'attente
+            // Trouver une place dans la file d'attente (n'importe quel slot NULL)
             int placed = 0;
             for (int i = 0; i < MAX_CLIENTS_EN_ATTENTE; i++)
             {
                 if (fileAttente[i] == NULL)
                 {
-                    newClient->id = i + 1; // ID 1 ou 2 pour la file d'attente
+                    newClient->id = i + 1; // ID basé sur la position dans la file
                     newClient->pret = 0;
                     fileAttente[i] = newClient;
                     placed = 1;
@@ -369,15 +356,15 @@ void boucleServeur(int socketEcoute)
 
             if (!placed)
             {
-                // File d'attente pleine, refuser la connexion
-                printf("Serveur [%d]: Connexion refusée. File d'attente pleine.\n", getpid());
+                // File d'attente pleine, refuser la connexion (si MAX_CLIENTS_EN_ATTENTE est atteint)
+                printf("Serveur [%d]: Connexion refusée. File d'attente pleine (%d max).\n", getpid(), MAX_CLIENTS_EN_ATTENTE);
                 envoyerPacket(newClient->socket, 0, "SERVEUR_PLEIN");
                 close(newClient->socket);
                 free(newClient);
             }
         }
 
-        // Gérer les messages des clients en attente
+        // Gérer les messages des clients en attente - Pas de changement
         for (int i = 0; i < MAX_CLIENTS_EN_ATTENTE; i++)
         {
             ClientData *client = fileAttente[i];
@@ -388,7 +375,6 @@ void boucleServeur(int socketEcoute)
 
                 if (ret <= 0 || strcmp(p.message, "exit") == 0)
                 {
-                    // Déconnexion ou fermeture du client
                     printf("Serveur [%d]: Client C%d déconnecté.\n", getpid(), client->id);
                     close(client->socket);
                     free(client);
@@ -396,29 +382,39 @@ void boucleServeur(int socketEcoute)
                     continue;
                 }
                 
-                // Commande 'start' (prêt à jouer)
                 if (strcmp(p.message, "start") == 0)
                 {
                     client->pret = 1;
                     printf("Serveur [%d]: Client C%d est prêt (start).\n", getpid(), client->id);
                 }
-                
-                // Commande 'REPLAY' (demande de rejeu)
-                // Dans V3, REPLAY ne devrait être reçu que par le processus enfant.
-                // Si le parent le reçoit, c'est que le client a quitté/re-rentré la boucle.
-                // Nous ignorons le REPLAY dans le parent pour cette implémentation.
             }
         }
         
         // =================================================
-        // VÉRIFICATION D'UNE NOUVELLE PARTIE
+        // VÉRIFICATION D'UNE NOUVELLE PARTIE (LOGIQUE CORRIGÉE)
         // =================================================
 
-        ClientData *c1_partie = fileAttente[0];
-        ClientData *c2_partie = fileAttente[1];
+        ClientData *c1_partie = NULL;
+        ClientData *c2_partie = NULL;
+        int index1 = -1;
+        int index2 = -1;
+
+        // Trouver la première paire de clients prêts (pret = 1)
+        for (int i = 0; i < MAX_CLIENTS_EN_ATTENTE; i++) {
+            if (fileAttente[i] != NULL && fileAttente[i]->pret == 1) {
+                if (c1_partie == NULL) {
+                    c1_partie = fileAttente[i];
+                    index1 = i;
+                } else {
+                    c2_partie = fileAttente[i];
+                    index2 = i;
+                    break; // Paire trouvée
+                }
+            }
+        }
         
-        // Vérification : 2 clients en attente et les deux sont prêts (1)
-        if (c1_partie != NULL && c2_partie != NULL && c1_partie->pret == 1 && c2_partie->pret == 1)
+        // Démarrage : 2 clients trouvés et prêts
+        if (c1_partie != NULL && c2_partie != NULL)
         {
             // **********************************************
             // DÉMARRAGE DE LA PARTIE DANS UN PROCESSUS ENFANT
@@ -429,6 +425,7 @@ void boucleServeur(int socketEcoute)
             {
                 perror("fork");
                 printf("Serveur [%d]: Échec du fork. Clients C%d et C%d restent en attente.\n", getpid(), c1_partie->id, c2_partie->id);
+                // Réinitialiser le statut 'pret' pour éviter un fork infini
                 c1_partie->pret = 0;
                 c2_partie->pret = 0;
             }
@@ -438,44 +435,44 @@ void boucleServeur(int socketEcoute)
                 ClientData *client_copy1 = (ClientData *)malloc(sizeof(ClientData));
                 ClientData *client_copy2 = (ClientData *)malloc(sizeof(ClientData));
                 
-                // On copie les données avant que le parent ne les free/reset
-                memcpy(client_copy1, c1_partie, sizeof(ClientData));
-                memcpy(client_copy2, c2_partie, sizeof(ClientData));
-
+                // C1 est toujours le Maître du jeu (ID 1)
+                // C2 est toujours le Devineur (ID 2)
+                client_copy1->id = 1;
+                client_copy2->id = 2;
+                client_copy1->socket = c1_partie->socket;
+                client_copy2->socket = c2_partie->socket;
+                
                 // Envoyer le message de confirmation (start) aux clients
+                // On utilise les ID 1 et 2 pour la communication de la partie.
                 envoyerPacket(client_copy1->socket, client_copy1->id, "start");
                 envoyerPacket(client_copy2->socket, client_copy2->id, "start");
                 
                 // L'enfant exécute la logique de jeu
                 traiterJeu(client_copy1, client_copy2); 
-                
-                // Note: traiterJeu appelle exit(EXIT_SUCCESS)
             }
             else // Processus parent
             {
-                printf("Serveur [%d]: Partie créée (PID: %d). Nettoyage de la file d'attente.\n", getpid(), pid);
+                printf("Serveur [%d]: Partie créée (PID: %d) entre C%d et C%d. Nettoyage de la file d'attente aux indices %d et %d.\n", 
+                       getpid(), pid, c1_partie->id, c2_partie->id, index1, index2);
 
-                // Le parent doit fermer les sockets pour lui-même et libérer la mémoire
-                // Ces sockets sont maintenus ouverts par le processus enfant.
+                // Fermer les sockets du parent et libérer la mémoire aux indices trouvés
                 close(c1_partie->socket);
                 close(c2_partie->socket);
                 free(c1_partie);
                 free(c2_partie);
-                fileAttente[0] = NULL;
-                fileAttente[1] = NULL;
+                fileAttente[index1] = NULL;
+                fileAttente[index2] = NULL;
             }
         }
-        else if (c1_partie != NULL && c1_partie->pret == 1)
+        else 
         {
-            // Un seul client est prêt, envoyer un message d'attente
-            envoyerPacket(c1_partie->socket, 0, "EN_ATTENTE_ADVERSAIRE");
-            c1_partie->pret = 0; 
-        }
-        else if (c2_partie != NULL && c2_partie->pret == 1)
-        {
-             // Un seul client est prêt, envoyer un message d'attente
-            envoyerPacket(c2_partie->socket, 0, "EN_ATTENTE_ADVERSAIRE");
-            c2_partie->pret = 0; 
+            // ENVOI DE L'ÉTAT D'ATTENTE (s'il y a au moins un client prêt seul)
+            
+            // Si c1_partie est trouvé mais pas c2_partie (client seul prêt)
+            if (c1_partie != NULL && c2_partie == NULL)
+            {
+                envoyerPacket(c1_partie->socket, 0, "EN_ATTENTE_ADVERSAIRE");
+            }
         }
     }
 }

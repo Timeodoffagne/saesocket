@@ -1,5 +1,5 @@
 # Bienvenu dans notre jeu de pendu !
-Jeu créé par Thomas Eugène, Hugo Sauvage, Célien Kerckhove et Timéo Doffagne.
+    Jeu créé par Thomas Eugène, Hugo Sauvage, Célien Kerckhove et Timéo Doffagne. Dans le cadre de la SAE Sockets (S3.02).
 
 ## Introduction : 
     Ce jeu du pendu codé dans le langage C est disponible dans plusieurs versions. Nous vous conseillons dans un premier temps de compiler toutes les versions du jeu via les commandes suivantes.

@@ -1,13 +1,79 @@
-Jeu créé par Thomas Eugène, Hugo Sauvage, Célien Kerckhove et Timéo Doffagne.
+# Bienvenu dans notre jeu de pendu !
+    Jeu créé par Thomas Eugène, Hugo Sauvage, Célien Kerckhove et Timéo Doffagne. Dans le cadre de la SAE Sockets (S3.02).
 
-Version 0 :
+## Introduction : 
+    Ce jeu du pendu codé dans le langage C est disponible dans plusieurs versions. Nous vous conseillons dans un premier temps de compiler toutes les versions du jeu via les commandes suivantes.
+    [dans le répertoire saesocket]
+        gcc ./src/V0/serveur_v0.c -o ./build/serveur_v0
+        gcc ./src/V0/client_v0.c -o ./build/client_v0
 
-    Compilation serveur : gcc ./src/V0/serveur_v0.c -o ./build/serveur_v0
-    Exécution serveur : ./build/client_v0
+    gcc ./src/V1/serveur_v1.c -o ./build/serveur_v1
+    gcc ./src/V1/client_v1.c -o ./build/client_v1
 
-    Compilation client : gcc ./src/V0/client_v0.c -o ./build/client_v0
-    Exécution client : ./build/client_v0 *ip serveur* *port serveur*
+    gcc ./src/V2/serveur_v2.c -o ./build/serveur_v2
+    gcc ./src/V2/client_v2.c -o ./build/client_v2
 
-    Le client arrive sur un terminal et peut envoyer des messages au serveur.
-    À partir du moment où le client envoie "start x", le serveur lance une partie de pendu.
+    gcc ./src/V3/serveur_v3.c -o ./build/serveur_v3
+    gcc ./src/V3/client_v3.c -o ./build/client_v3
+    gcc ./src/v3/partie_v3.c -o ./build/partie_v3
+
+    gcc ./src/V4/serveur_v4.c -o ./build/serveur_v4
+    gcc ./src/V4/client_v4.c -o ./build/client_v4
+    Suite à cela, vous pouvez tester les différentes versions en suivant les instructions ci-dessous. Celles-ci contiennent les commandes d'execution ainsi que des informations sur le fonctionnement de chaque version.
+
+## Version 0 :
+    Cette version est une version classique à un seul joueur.
+    Après avoir lancé le serveur via la commande suivante :
+        ./build/serveur_v0
+    Vous pouvez lancer le client via la commande suivante (en remplaçant *ip serveur* et *port serveur* par les informations adéquates) :
+        ./build/client_v0 *ip serveur* *port serveur*
+    D'abord, le serveur attend la connexion d'un client. Une fois le client connecté, celui ci entre dans un écran d'accueil fonctionnant comme un terminal et dans lequel il lui est possible d'entrer les mots "exit", pour quitter le serveur ou alors "start", pour commencer une partie de pendu. 
+    C'est le serveur qui se charge automatiquement de choisir un mot. Par la suite le joueur doit deviner le mot caché en entrant une lettre, il reçoit le résultat et continue jusqu'à ce que la partie se termine. (Victoire ou défaite du joueur)
     Une fois la partie finie, le client retourne sur l'écran d'accueil, et peut relancer une partie ou quitter la serveur avec "exit".
+
+
+## Version 1 :
+    Cette version est une version 2 joueurs du pendu.
+    Après avoir lancé le serveur via la commande suivante :
+        ./build/serveur_v1
+    Vous pouvez lancer le client via la commande suivante (en remplaçant *ip serveur* et *port serveur* par les informations adéquates) :
+        ./build/client_v1 *ip serveur* *port serveur*
+    Les clients arrivent sur un terminal et peuvent alternativement envoyer des messages au serveur.
+    Les clients entrent la commande "start" pour accéder à la partie.
+    Une fois que le serveur a recu les deux commandes "start", la partie commence.
+    Les deux joueurs cherchent le même mot, voient les mêmes lettres trouvés (si le j1 trouve la première lettre, le j2 la verra ausssi), mais ont un pendu différent. Ils sont donc en competition, si un joeur gagne alors l'autre perd.
+    Pour ce qui est du fonctionnement du jeu, c'est comme dans la version 0 pour ce qui est de la connexion au serveur, du demarrage de la partie, etc...
+
+
+## Version 2 :
+    Cette version est une version 2 joueurs du pendu.
+    Après avoir lancé le serveur via la commande suivante :
+        ./build/serveur_v2
+    Vous pouvez lancer le client via la commande suivante (en remplaçant *ip serveur* et *port serveur* par les informations adéquates) :
+        ./build/client_v2 *ip serveur* *port serveur*
+    Les clients arrivent sur un terminal et peuvent alternativement envoyer des messages au serveur. Cependant, cette fois ci, les joueurs ne sont pas en compétition. Car l'un entre le mot à faire deviner, et l'autre doit le deviner.
+    Les clients entrent la commande "start" pour accéder à la partie.
+    Une fois que le serveur a recu les deux commandes "start", la partie commence.
+    Le premier joueur connecté sera le joueur qui fera deviner le mot à l'autre joueur, le deuxième joueur connecté devra donc deviner le mot du joueur 1.
+    Une fois la partie finie, on laisse aux joueurs la possibilité de relancer une partie ou de quitter le serveur.
+
+## Version 3 :
+    Cette version est une version 2 joueurs du pendu. Dans laquelle le serveur gère plusieurs parties en même temps.
+    Après avoir lancé le serveur via la commande suivante :
+        ./build/serveur_v3
+    Vous pouvez lancer le client via la commande suivante (en remplaçant *ip serveur* et *port serveur* par les informations adéquates) :
+        ./build/client_v3 *ip serveur* *port serveur*
+    Les clients arrivent sur un terminal et peuvent alternativement envoyer des messages au serveur.
+    Les clients entrent la commande "start" pour accéder à la partie.
+    Une fois que le serveur a recu les deux commandes "start", la partie commence.
+    Le premier joueur connecté sera le joueur qui fera deviner le mot à l'autre joueur, le deuxième joueur connecté devra donc deviner le mot du joueur 1.
+    Une fois la partie finie, on laisse aux joueurs la possibilité de relancer une partie ou de quitter le serveur.
+    Dans cette version, le serveur est capable de gérer plusieurs parties en même temps. Chaque partie est gérée par un processus fils du serveur principal, ce qui permet à plusieurs paires de joueurs de jouer simultanément sans interférer les uns avec les autres. De nouveaux clients peuvent donc se connecter et commencer une nouvelle partie à tout moment.
+
+## Version 4 :
+    Cette version est une version 2 joueurs du pendu. Dans laquelle le serveur ne gère que la connexion des clients. par la suite ceux-ci communiquent directement entre eux pour jouer.
+    Le fonctionnement de la partie est donc similaire à la version 2, mais le serveur n'intervient plus dans la gestion de la partie.
+    Après avoir lancé le serveur via la commande suivante :
+        ./build/serveur_v4
+    Vous pouvez lancer le client via la commande suivante (en remplaçant *ip serveur* et *port serveur* par les informations adéquates) :
+        ./build/client_v4 *ip serveur* *port serveur*

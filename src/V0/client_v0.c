@@ -198,7 +198,7 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
         // Réception du mot masqué
         motCache = recevoirMessage(sock);
         clearScreen();
-        printf("\n|=======================================================|\n");
+        printf("\n|========================================================|\n");
         printf("|              PARTIE EN COURS                           |\n");
         printf("|========================================================|\n");
         // printf("[DEBUG] motCache = %s\n", motCache);

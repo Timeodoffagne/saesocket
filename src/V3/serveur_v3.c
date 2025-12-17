@@ -1,3 +1,7 @@
+// ====================================================
+// COTÉ SERVEUR DE LA VERSION 3
+// ====================================================
+
 // Définir _POSIX_C_SOURCE avant tous les includes
 #define _POSIX_C_SOURCE 200809L
 

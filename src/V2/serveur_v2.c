@@ -1,3 +1,7 @@
+// ====================================================
+// COTÉ SERVEUR DE LA VERSION 2
+// ====================================================
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

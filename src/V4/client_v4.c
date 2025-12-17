@@ -79,7 +79,7 @@ int creerSocketEcoute(int port)
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_addr.s_addr = INADDR_ANY;  // Écoute sur TOUTES les interfaces (0.0.0.0)
     addr.sin_port = htons(port);
 
     if (bind(sock, (struct sockaddr *)&addr, sizeof(addr)) < 0)
@@ -96,7 +96,7 @@ int creerSocketEcoute(int port)
         return -1;
     }
 
-    printf("[P2P SERVER] En écoute sur le port %d...\n", port);
+    printf("[P2P SERVER] En écoute sur 0.0.0.0:%d (toutes interfaces)...\n", port);
     return sock;
 }
 
@@ -605,7 +605,7 @@ void boucleClientP2P(int sock_matchmaking)
 
         // Tentatives de connexion (C1 pourrait ne pas être prêt immédiatement)
         int tentatives = 0;
-        while (tentatives < 10)
+        while (tentatives < 15)  // Augmenté à 15 tentatives
         {
             sock_p2p = socket(AF_INET, SOCK_STREAM, 0);
             if (sock_p2p < 0)
@@ -629,8 +629,8 @@ void boucleClientP2P(int sock_matchmaking)
             close(sock_p2p);
             sock_p2p = -1;
             tentatives++;
-            printf("[P2P] Tentative %d/10...\n", tentatives);
-            sleep(1);
+            printf("[P2P] Tentative %d/15... (attente 2s)\n", tentatives);
+            sleep(2);  // Augmenté à 2 secondes
         }
 
         if (sock_p2p < 0)

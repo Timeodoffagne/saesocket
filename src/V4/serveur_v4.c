@@ -128,8 +128,10 @@ void lancerPartieP2P(ClientData *c1, ClientData *c2)
     // Attribuer un port P2P à C1 (qui sera le serveur P2P)
     c1->p2p_port = P2P_BASE_PORT + (rand() % 1000);
 
-    // Récupérer l'IP de C1
+    // Récupérer l'IP réelle de C1 (vue par le serveur sur le réseau)
     char *ip_c1 = inet_ntoa(c1->addr.sin_addr);
+    
+    printf("[DEBUG] IP de C1 détectée : %s\n", ip_c1);
     
     printf("[MATCHMAKING] C1 (%s) sera le serveur P2P sur le port %d\n", ip_c1, c1->p2p_port);
     printf("[MATCHMAKING] C2 (%s) se connectera à C1\n", inet_ntoa(c2->addr.sin_addr));

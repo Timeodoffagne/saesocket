@@ -47,13 +47,18 @@ int nb_parties = 0;
 int prochain_id_partie = 1;
 volatile sig_atomic_t enfant_termine = 0;
 
+// =========================================================
+//  FONCTION : verifier proprement qu'un enfant est terminé
+// =========================================================
 void sigchld_handler(int sig)
 {
     (void)sig;
     enfant_termine = 1;
 }
 
-/* -------------------------------------------------------------------------- */
+// =====================================================
+//  FONCTION : création + connexion socket
+// =====================================================
 void creationSocket(int *socketEcoute,
                     socklen_t *longueurAdresse,
                     struct sockaddr_in *pointDeRencontreLocal)
@@ -89,12 +94,14 @@ void creationSocket(int *socketEcoute,
         exit(EXIT_FAILURE);
     }
 
-    printf("🚀 Serveur V3 démarré : écoute sur le port %d\n", PORT);
-    printf("📊 Architecture: Serveur + Programme externe 'partie_v3'\n");
-    printf("═══════════════════════════════════════════════════════\n\n");
+    printf("Serveur V3 démarré : écoute sur le port %d\n", PORT);
+    printf("==============================================\n\n");
 }
 
-/* -------------------------------------------------------------------------- */
+// =====================================================
+//  FONCTION : envoi d'un paquet
+//  retourne -1 si echec
+// =====================================================
 int envoyerPacket(int sock, int destinataire, const char *msg)
 {
     if (sock < 0)
@@ -113,7 +120,9 @@ int envoyerPacket(int sock, int destinataire, const char *msg)
     return send(sock, buffer, sizeof(Packet), 0);
 }
 
-/* -------------------------------------------------------------------------- */
+// =====================================================
+//  FONCTION : tue les processus des parties terminées
+// =====================================================
 void nettoyerPartiesTerminees()
 {
     int status;
@@ -126,7 +135,7 @@ void nettoyerPartiesTerminees()
             if (parties[i].pid == pid)
             {
                 time_t duree = time(NULL) - parties[i].debut;
-                printf("✓ Partie %d terminée (PID %d, durée: %ld sec)\n",
+                printf("Partie %d terminée (PID %d, durée: %ld sec)\n",
                        parties[i].id_partie, pid, duree);
 
                 for (int j = i; j < nb_parties - 1; j++)
@@ -142,7 +151,9 @@ void nettoyerPartiesTerminees()
     enfant_termine = 0;
 }
 
-/* -------------------------------------------------------------------------- */
+// =====================================================
+//  FONCTION : lance une partie externe
+// =====================================================
 void lancerPartieExterne(int sock_c1, int sock_c2, 
                          struct sockaddr_in addr_c1, 
                          struct sockaddr_in addr_c2)
@@ -189,7 +200,7 @@ void lancerPartieExterne(int sock_c1, int sock_c2,
 
         // Si on arrive ici, execl a échoué
         perror("execl partie_v3");
-        fprintf(stderr, "❌ Impossible de lancer partie_v3. Assurez-vous qu'il est compilé.\n");
+        fprintf(stderr, "Impossible de lancer partie_v3. Assurez-vous qu'il est compilé.\n");
         exit(EXIT_FAILURE);
     }
     else
@@ -206,19 +217,21 @@ void lancerPartieExterne(int sock_c1, int sock_c2,
         parties[nb_parties].debut = time(NULL);
         nb_parties++;
 
-        printf("🎮 Partie %d lancée (PID %d) : %s vs %s\n",
+        printf("Partie %d lancée (PID %d) : %s vs %s\n",
                id, pid, inet_ntoa(addr_c1.sin_addr), inet_ntoa(addr_c2.sin_addr));
-        printf("📊 Parties actives: %d | Clients en attente: %d\n",
+        printf("Parties actives: %d | Clients en attente: %d\n",
                nb_parties, nb_clients_attente);
     }
 }
 
-/* -------------------------------------------------------------------------- */
+// =====================================================
+//  FONCTION : ajoute un client dans la liste d'attente
+// =====================================================
 void ajouterClientAttente(int socket, struct sockaddr_in addr)
 {
     if (nb_clients_attente >= MAX_CLIENTS_ATTENTE)
     {
-        printf("⚠️  File d'attente pleine\n");
+        printf("File d'attente pleine\n");
         char *msg = "Serveur saturé\n";
         send(socket, msg, strlen(msg), 0);
         close(socket);
@@ -230,11 +243,13 @@ void ajouterClientAttente(int socket, struct sockaddr_in addr)
     clients_attente[nb_clients_attente].connexion_time = time(NULL);
     nb_clients_attente++;
 
-    printf("➕ Client ajouté (%s) - En attente: %d\n",
+    printf("Client ajouté (%s) - En attente: %d\n",
            inet_ntoa(addr.sin_addr), nb_clients_attente);
 }
 
-/* -------------------------------------------------------------------------- */
+// ==========================================================================
+//  FONCTION : créer une partie si c'est possible (clients en attente >= 2)
+// ==========================================================================
 void creerPartiesSiPossible()
 {
     while (nb_clients_attente >= 2)
@@ -256,30 +271,9 @@ void creerPartiesSiPossible()
     }
 }
 
-/* -------------------------------------------------------------------------- */
-void afficherStats()
-{
-    printf("\n═══════════════════════════════════════════════════════\n");
-    printf("📊 STATISTIQUES SERVEUR V3\n");
-    printf("═══════════════════════════════════════════════════════\n");
-    printf("Parties actives: %d\n", nb_parties);
-    printf("Clients en attente: %d\n", nb_clients_attente);
-    
-    if (nb_parties > 0)
-    {
-        printf("\nParties en cours:\n");
-        for (int i = 0; i < nb_parties; i++)
-        {
-            time_t duree = time(NULL) - parties[i].debut;
-            printf("  - Partie %d (PID %d) : %ld sec\n",
-                   parties[i].id_partie, parties[i].pid, duree);
-        }
-    }
-    
-    printf("═══════════════════════════════════════════════════════\n\n");
-}
-
-/* -------------------------------------------------------------------------- */
+// =====================================================
+//  FONCTION : Boucle principale du serveur
+// =====================================================
 void boucleServeur(int socketEcoute)
 {
     struct sigaction sa;
@@ -295,7 +289,7 @@ void boucleServeur(int socketEcoute)
     socklen_t longueurAdresse = sizeof(struct sockaddr_in);
     struct sockaddr_in clientAddr;
 
-    printf("✅ Serveur prêt à accepter des connexions\n\n");
+    printf("Serveur prêt à accepter des connexions\n\n");
 
     while (1)
     {
@@ -353,7 +347,7 @@ void boucleServeur(int socketEcoute)
 
                 if (strcmp(line, "exit") == 0 || strcmp(line, "quit") == 0)
                 {
-                    printf("🛑 Arrêt du serveur...\n");
+                    printf("Arrêt du serveur...\n");
 
                     for (int i = 0; i < nb_clients_attente; i++)
                     {
@@ -371,19 +365,8 @@ void boucleServeur(int socketEcoute)
                         sleep(100000);
                     }
 
-                    printf("✅ Serveur arrêté\n");
+                    printf("Serveur arrêté\n");
                     break;
-                }
-                else if (strcmp(line, "stats") == 0)
-                {
-                    afficherStats();
-                }
-                else if (strcmp(line, "help") == 0)
-                {
-                    printf("\nCommandes:\n");
-                    printf("  stats - Statistiques\n");
-                    printf("  exit  - Arrêter\n");
-                    printf("  help  - Aide\n\n");
                 }
                 else
                 {

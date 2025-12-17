@@ -523,7 +523,7 @@ void boucleClient(int sock, int *ID_CLIENT)
         *ID_CLIENT = p.destinataire;
         printf("\n|========================================================|");
         printf("\n|  Vous êtes le joueur #%d                                |", *ID_CLIENT);
-        printf("\n|  %s  |", p.message);
+        printf("\n|  %s   |", p.message);
         printf("\n|========================================================|\n");
     }
     else

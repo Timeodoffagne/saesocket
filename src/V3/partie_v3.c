@@ -19,7 +19,9 @@ typedef struct
     char message[LG_MESSAGE];
 } Packet;
 
-// ==========================================================================
+// =====================================================
+//  FONCTION : envoi un packet à un destinataire
+// =====================================================
 int envoyerPacket(int sock, int destinataire, const char *msg)
 {
     if (sock < 0)
@@ -38,7 +40,9 @@ int envoyerPacket(int sock, int destinataire, const char *msg)
     return send(sock, buffer, sizeof(Packet), 0);
 }
 
-// ==========================================================================
+// =====================================================
+//  FONCTION : gere la reception d'un paquet
+// =====================================================
 int recevoirPacket(int socketDialogue, Packet *p)
 {
     char buffer[sizeof(int) + LG_MESSAGE];
@@ -102,7 +106,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
             continue;
         }
 
-        // ===== ACTIVITÉ CLIENT 1 =====
+        // ACTIVITÉ CLIENT 1
         if (FD_ISSET(socket_c1, &readfds))
         {
             Packet p;
@@ -116,7 +120,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
                 break;
             }
 
-            printf("[Partie %d] C1→S: %s\n", id_partie, p.message);
+            printf("[Partie %d] C1->S: %s\n", id_partie, p.message);
 
             // Commande 'start'
             if (strcmp(p.message, "start") == 0)
@@ -124,7 +128,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
                 c1_pret = 1;
                 if (c1_pret && c2_pret)
                 {
-                    printf("[Partie %d] Les deux clients prêts → lancement\n", id_partie);
+                    printf("[Partie %d] Les deux clients prêts -> lancement\n", id_partie);
                     envoyerPacket(socket_c1, 1, "start");
                     envoyerPacket(socket_c2, 2, "start");
                     c1_pret = 0;
@@ -137,7 +141,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
                 c1_pret = 1;
                 if (c1_pret && c2_pret)
                 {
-                    printf("[Partie %d] REPLAY accepté → inversion\n", id_partie);
+                    printf("[Partie %d] REPLAY accepté -> inversion\n", id_partie);
                     envoyerPacket(socket_c1, 2, "REPLAY_START:2");
                     envoyerPacket(socket_c2, 1, "REPLAY_START:1");
                     c1_pret = 0;
@@ -164,7 +168,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
             }
         }
 
-        // ===== ACTIVITÉ CLIENT 2 =====
+        // ACTIVITÉ CLIENT 2
         if (FD_ISSET(socket_c2, &readfds))
         {
             Packet p;
@@ -178,7 +182,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
                 break;
             }
 
-            printf("[Partie %d] C2→S: %s\n", id_partie, p.message);
+            printf("[Partie %d] C2->S: %s\n", id_partie, p.message);
 
             // Commande 'start'
             if (strcmp(p.message, "start") == 0)
@@ -186,7 +190,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
                 c2_pret = 1;
                 if (c1_pret && c2_pret)
                 {
-                    printf("[Partie %d] Les deux clients prêts → lancement\n", id_partie);
+                    printf("[Partie %d] Les deux clients prêts -> lancement\n", id_partie);
                     envoyerPacket(socket_c1, 1, "start");
                     envoyerPacket(socket_c2, 2, "start");
                     c1_pret = 0;
@@ -199,7 +203,7 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
                 c2_pret = 1;
                 if (c1_pret && c2_pret)
                 {
-                    printf("[Partie %d] REPLAY accepté → inversion\n", id_partie);
+                    printf("[Partie %d] REPLAY accepté -> inversion\n", id_partie);
                     envoyerPacket(socket_c1, 2, "REPLAY_START:2");
                     envoyerPacket(socket_c2, 1, "REPLAY_START:1");
                     c1_pret = 0;

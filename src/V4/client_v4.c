@@ -569,6 +569,13 @@ void boucleClientP2P(int sock_matchmaking)
             return;
         }
 
+        printf("[P2P] ✓ Socket d'écoute créé\n");
+        
+        // IMPORTANT : Informer le serveur qu'on écoute MAINTENANT
+        // Le serveur va attendre ce signal avant de dire à C2 de se connecter
+        envoyerPacket(sock_matchmaking, 1, "P2P_LISTENING");
+        printf("[P2P] ✓ Signal 'P2P_LISTENING' envoyé au serveur\n");
+
         printf("[P2P] En attente de la connexion de C2...\n");
 
         struct sockaddr_in client_addr;

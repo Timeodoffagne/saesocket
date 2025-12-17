@@ -253,9 +253,9 @@ int jeuDuPenduV4(int sock_p2p, int ID_CLIENT)
     memset(currentState.motMasque, 0, LG_MESSAGE * 2);
     memset(currentState.lettresJouees, 0, sizeof(currentState.lettresJouees));
 
-    printf("\n╔════════════════════════════════════════════════════════════╗\n");
-    printf("║              JEU DU PENDU - MODE P2P                       ║\n");
-    printf("╚════════════════════════════════════════════════════════════╝\n");
+    printf("\n|============================================================|\n");
+    printf("|              JEU DU PENDU - MODE P2P                       |\n");
+    printf("|============================================================|\n");
 
     // ================== PHASE D'INITIALISATION ==================
     if (currentState.monRole == 1) // C1 : Maître du Jeu
@@ -499,7 +499,7 @@ int jeuDuPenduV4(int sock_p2p, int ID_CLIENT)
     char line[4];
     if (fgets(line, sizeof(line), stdin) && (line[0] == 'y' || line[0] == 'Y'))
     {
-        printf("✓ Rejeu avec inversion des rôles en P2P (sans retour au serveur)\n");
+        printf("v Rejeu avec inversion des rôles en P2P (sans retour au serveur)\n");
         return 1; // Signal de rejeu
     }
 
@@ -518,10 +518,10 @@ void boucleClientP2P(int sock_matchmaking)
     if (ret > 0)
     {
         ID_CLIENT = p.destinataire;
-        printf("\n╔════════════════════════════════════════════════════════════╗\n");
-        printf("║  Vous êtes le joueur #%d                                    ║\n", ID_CLIENT);
-        printf("║  %s  ║\n", p.message);
-        printf("╚════════════════════════════════════════════════════════════╝\n");
+        printf("\n|========================================================|\n");
+        printf("| Vous êtes le joueur #%d                                 |\n", ID_CLIENT);
+        printf("|  %s        |\n", p.message);
+        printf("|========================================================|\n");
     }
     else
     {
@@ -547,7 +547,7 @@ void boucleClientP2P(int sock_matchmaking)
         return;
     }
     
-    printf("\n🎮 Recherche d'une partie...\n");
+    printf("\nRecherche d'une partie...\n");
     envoyerPacket(sock_matchmaking, ID_CLIENT, "start");
 
     // Attendre les informations P2P du serveur
@@ -573,12 +573,12 @@ void boucleClientP2P(int sock_matchmaking)
             return;
         }
 
-        printf("[P2P] ✓ Socket d'écoute créé\n");
+        printf("[P2P] v Socket d'écoute créé\n");
         
         // IMPORTANT : Informer le serveur qu'on écoute MAINTENANT
         // Le serveur va attendre ce signal avant de dire à C2 de se connecter
         envoyerPacket(sock_matchmaking, 1, "P2P_LISTENING");
-        printf("[P2P] ✓ Signal 'P2P_LISTENING' envoyé au serveur\n");
+        printf("[P2P] v Signal 'P2P_LISTENING' envoyé au serveur\n");
 
         printf("[P2P] En attente de la connexion de C2...\n");
 
@@ -593,7 +593,7 @@ void boucleClientP2P(int sock_matchmaking)
             return;
         }
 
-        printf("[P2P] ✓ C2 connecté depuis %s\n", inet_ntoa(client_addr.sin_addr));
+        printf("[P2P] v C2 connecté depuis %s\n", inet_ntoa(client_addr.sin_addr));
         close(listen_sock);
     }
     // C2 se connecte à C1
@@ -633,7 +633,7 @@ void boucleClientP2P(int sock_matchmaking)
 
             if (connect(sock_p2p, (struct sockaddr *)&serv, sizeof(serv)) == 0)
             {
-                printf("[P2P] ✓ Connecté à C1 en P2P\n");
+                printf("[P2P] v Connecté à C1 en P2P\n");
                 break;
             }
 
@@ -658,8 +658,8 @@ void boucleClientP2P(int sock_matchmaking)
 
     // Fermer la connexion avec le serveur de matchmaking
     close(sock_matchmaking);
-    printf("\n[P2P] ✓ Connexion P2P établie ! Le serveur est libéré.\n");
-    printf("[P2P] ✓ Communication directe entre les deux joueurs.\n");
+    printf("\n[P2P] v Connexion P2P établie ! Le serveur est libéré.\n");
+    printf("[P2P] Communication directe entre les deux joueurs.\n");
     sleep(1);
 
     // Boucle de jeu avec rejeu possible en P2P
@@ -672,7 +672,7 @@ void boucleClientP2P(int sock_matchmaking)
         {
             // Inverser les rôles
             ID_CLIENT = (ID_CLIENT == 1) ? 2 : 1;
-            printf("\n🔄 Rôles inversés ! Vous êtes maintenant le joueur #%d\n", ID_CLIENT);
+            printf("\nRôles inversés ! Vous êtes maintenant le joueur #%d\n", ID_CLIENT);
             sleep(2);
         }
         else
@@ -682,7 +682,7 @@ void boucleClientP2P(int sock_matchmaking)
     }
 
     close(sock_p2p);
-    printf("\n👋 Fin de la session P2P.\n");
+    printf("\nFin de la session P2P.\n");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -702,9 +702,9 @@ int main(int argc, char *argv[])
 
     sscanf(argv[2], "%d", &port_dest);
 
-    printf("\n╔════════════════════════════════════════════════════════════╗\n");
-    printf("║          CLIENT V4 - MODE P2P                              ║\n");
-    printf("╚════════════════════════════════════════════════════════════╝\n");
+    printf("\n|========================================================|\n");
+    printf("|          CLIENT V4 - MODE P2P                          |\n");
+    printf("|========================================================|\n");
 
     int sock = creationDeSocket(ip_dest, port_dest);
     boucleClientP2P(sock);

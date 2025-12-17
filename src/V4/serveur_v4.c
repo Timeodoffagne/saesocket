@@ -70,10 +70,10 @@ void creationSocket(int *socketEcoute,
         exit(EXIT_FAILURE);
     }
 
-    printf("╔════════════════════════════════════════════════════════════╗\n");
-    printf("║     SERVEUR V4 - MATCHMAKING P2P DÉMARRÉ                  ║\n");
-    printf("║     Port d'écoute : %d                                    ║\n", PORT);
-    printf("╚════════════════════════════════════════════════════════════╝\n");
+    printf("|===========================================================|\n");
+    printf("|     SERVEUR V4 - MATCHMAKING P2P DÉMARRÉ                  |\n");
+    printf("|     Port d'écoute : %d                                    |\n", PORT);
+    printf("|===========================================================|\n");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -197,7 +197,7 @@ void boucleServeur(int socketEcoute)
                         c->p2p_port = 0;
                         c->p2p_ready = 0;
                         client1 = c;
-                        printf("\n[CONNEXION] ✓ Client 1 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        printf("\n[CONNEXION] v Client 1 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
                         envoyerPacket(s, 1, "Bienvenue Client 1 ! Tapez 'start' pour jouer.");
                     }
                 }
@@ -218,7 +218,7 @@ void boucleServeur(int socketEcoute)
                         c->p2p_port = 0;
                         c->p2p_ready = 0;
                         client2 = c;
-                        printf("\n[CONNEXION] ✓ Client 2 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
+                        printf("\n[CONNEXION] v Client 2 connecté : %s\n", inet_ntoa(c->addr.sin_addr));
                         envoyerPacket(s, 2, "Bienvenue Client 2 ! Tapez 'start' pour jouer.");
                     }
                 }
@@ -252,9 +252,9 @@ void boucleServeur(int socketEcoute)
                 // Si les deux sont prêts, lancer le matchmaking P2P
                 if (client2 && client2->pret == 1)
                 {
-                    printf("\n╔════════════════════════════════════════════════════════════╗\n");
-                    printf("║           LANCEMENT D'UNE PARTIE P2P                       ║\n");
-                    printf("╚════════════════════════════════════════════════════════════╝\n");
+                    printf("\n|============================================================|\n");
+                    printf("|           LANCEMENT D'UNE PARTIE P2P                       |\n");
+                    printf("|============================================================|\n");
 
                     // Attribuer un port P2P à C1
                     client1->p2p_port = P2P_BASE_PORT + (rand() % 1000);
@@ -272,7 +272,7 @@ void boucleServeur(int socketEcoute)
             {
                 // C1 confirme qu'il écoute sur son port P2P
                 client1->p2p_ready = 1;
-                printf("[MATCHMAKING] ✓ C1 est en écoute P2P\n");
+                printf("[MATCHMAKING] v C1 est en écoute P2P\n");
 
                 // Maintenant on peut dire à C2 de se connecter
                 if (client2 && client2->pret == 1)
@@ -282,8 +282,8 @@ void boucleServeur(int socketEcoute)
                     snprintf(msg_c2, LG_MESSAGE, "P2P_CONNECT:%s:%d", ip_c1, client1->p2p_port);
                     envoyerPacket(client2->socket, 2, msg_c2);
 
-                    printf("[MATCHMAKING] ✓ Infos P2P envoyées à C2\n");
-                    printf("[MATCHMAKING] ✓ Serveur prêt pour de nouvelles connexions\n\n");
+                    printf("[MATCHMAKING] v Infos P2P envoyées à C2\n");
+                    printf("[MATCHMAKING] v Serveur prêt pour de nouvelles connexions\n\n");
 
                     // Fermer les connexions
                     close(client1->socket);
@@ -323,9 +323,9 @@ void boucleServeur(int socketEcoute)
                 // Si les deux sont prêts, lancer le matchmaking P2P
                 if (client1 && client1->pret == 1)
                 {
-                    printf("\n╔════════════════════════════════════════════════════════════╗\n");
-                    printf("║           LANCEMENT D'UNE PARTIE P2P                       ║\n");
-                    printf("╚════════════════════════════════════════════════════════════╝\n");
+                    printf("\n|============================================================|\n");
+                    printf("|           LANCEMENT D'UNE PARTIE P2P                       |\n");
+                    printf("|============================================================|\n");
 
                     // Attribuer un port P2P à C1
                     client1->p2p_port = P2P_BASE_PORT + (rand() % 1000);

@@ -558,13 +558,13 @@ void boucleClient(int sock, int *ID_CLIENT)
         if (strcmp(buffer, "exit") == 0)
         {
             envoyerPacket(sock, *ID_CLIENT, "exit");
-            printf("👋 Fermeture du client.\n");
+            printf("Fermeture du client.\n");
             break;
         }
         else if (strcmp(buffer, "start") == 0)
         {
             envoyerPacket(sock, *ID_CLIENT, "start");
-            printf("🎮 Recherche d'une partie...\n");
+            printf("Recherche d'une partie...\n");
 
             while (1)
             {

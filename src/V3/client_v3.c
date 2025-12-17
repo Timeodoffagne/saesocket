@@ -224,7 +224,7 @@ char *traiterLettre(char lettre)
     return feedback;
 }
 
-int jeuDuPenduV2(int sock, int ID_CLIENT)
+int jeuDuPendu(int sock, int ID_CLIENT)
 {
     Packet p;
     int ret;
@@ -573,9 +573,9 @@ void boucleClient(int sock, int *ID_CLIENT)
 
                 if (strcmp(p.message, "start") == 0)
                 {
-                    printf("✅ Adversaire trouvé ! Début de la partie...\n");
+                    printf("Adversaire trouvé ! Début de la partie...\n");
                     sleep(1);
-                    if (jeuDuPenduV2(sock, *ID_CLIENT) == 1)
+                    if (jeuDuPendu(sock, *ID_CLIENT) == 1)
                     {
                         // Attendre la réponse REPLAY_START
                         continue;
@@ -587,10 +587,10 @@ void boucleClient(int sock, int *ID_CLIENT)
                     char *id_str = p.message + strlen("REPLAY_START:");
                     int new_id = atoi(id_str);
                     *ID_CLIENT = new_id;
-                    printf("🔄 Rôles inversés ! Vous êtes maintenant le joueur #%d.\n", *ID_CLIENT);
+                    printf("Rôles inversés ! Vous êtes maintenant le joueur #%d.\n", *ID_CLIENT);
                     sleep(1);
                     
-                    if (jeuDuPenduV2(sock, *ID_CLIENT) == 1)
+                    if (jeuDuPendu(sock, *ID_CLIENT) == 1)
                     {
                         // Attendre la réponse REPLAY_START
                         continue;
@@ -599,7 +599,7 @@ void boucleClient(int sock, int *ID_CLIENT)
                 }
                 else if (strcmp(p.message, "REPLAY") == 0)
                 {
-                    printf("⏳ L'adversaire a demandé une nouvelle partie. Voulez-vous accepter ? (y/n) ");
+                    printf("L'adversaire a demandé une nouvelle partie. Voulez-vous accepter ? (y/n) ");
                     fflush(stdout);
                     char replay_line[4];
                     if (fgets(replay_line, sizeof(replay_line), stdin) && (replay_line[0] == 'y' || replay_line[0] == 'Y'))

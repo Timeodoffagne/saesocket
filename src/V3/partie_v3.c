@@ -19,7 +19,7 @@ typedef struct
     char message[LG_MESSAGE];
 } Packet;
 
-/* -------------------------------------------------------------------------- */
+// ==========================================================================
 int envoyerPacket(int sock, int destinataire, const char *msg)
 {
     if (sock < 0)
@@ -38,7 +38,7 @@ int envoyerPacket(int sock, int destinataire, const char *msg)
     return send(sock, buffer, sizeof(Packet), 0);
 }
 
-/* -------------------------------------------------------------------------- */
+// ==========================================================================
 int recevoirPacket(int socketDialogue, Packet *p)
 {
     char buffer[sizeof(int) + LG_MESSAGE];
@@ -58,9 +58,9 @@ int recevoirPacket(int socketDialogue, Packet *p)
     return lus;
 }
 
-/* -------------------------------------------------------------------------- */
-/*                    GESTION D'UNE PARTIE COMPLÈTE                           */
-/* -------------------------------------------------------------------------- */
+// ==========================================================================
+//                    GESTION D'UNE PARTIE COMPLÈTE
+// ==========================================================================
 void gererPartie(int id_partie, int socket_c1, int socket_c2, 
                  const char *ip_c1, const char *ip_c2)
 {
@@ -232,9 +232,9 @@ void gererPartie(int id_partie, int socket_c1, int socket_c2,
     close(socket_c2);
 }
 
-/* -------------------------------------------------------------------------- */
-/*                                   MAIN                                      */
-/* -------------------------------------------------------------------------- */
+// ==========================================================================
+//                                   MAIN
+// ==========================================================================
 int main(int argc, char *argv[])
 {
     if (argc != 6)

@@ -125,7 +125,7 @@ int jeuDuPendu(int socketDialogue)
 
     char motCache[LG_MESSAGE];
 
-    printf("Nouveau jeu du pendu ! Mot = %s (%d lettres)\n", motADeviner, longueurMot);
+    printf("Nouveau jeu du pendu. Mot = %s (%d lettres)\n", motADeviner, longueurMot);
 
     /* 1) Le serveur confirme le début */
     envoyerMessage(socketDialogue, "start");
@@ -164,7 +164,6 @@ int jeuDuPendu(int socketDialogue)
         if (lus <= 0)
         {
             printf("Client déconnecté.\n");
-            // Indiquer à l'appelant que le client s'est déconnecté
             return 0;
         }
 
@@ -190,7 +189,7 @@ int jeuDuPendu(int socketDialogue)
                 if (motADeviner[i] == lettre)
                     lettresTrouvees++;
 
-            envoyerMessage(socketDialogue, "Bonne lettre !");
+            envoyerMessage(socketDialogue, "Bonne lettre");
         }
         else if (essaisRestants > 0 && lettresTrouvees < longueurMot)
         {
@@ -205,7 +204,7 @@ int jeuDuPendu(int socketDialogue)
     if (lettresTrouvees == longueurMot)
     {
         envoyerMessage(socketDialogue, "VICTOIRE");
-        printf("Le client a gagné !\n");
+        printf("Le client a gagné.\n");
     }
     else
     {

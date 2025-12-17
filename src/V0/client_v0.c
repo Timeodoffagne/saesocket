@@ -14,12 +14,12 @@
 // =====================================================
 //  FONCTION : création + connexion socket
 // =====================================================
-int creationDeSocket(const char *ip_dest, int port_dest)
+int creationSocket(const char *ip_dest, int port_dest)
 {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
     {
-        perror("Erreur en création de la socket");
+        perror("Erreur lors de la création de la socket");
         exit(EXIT_FAILURE);
     }
     printf("Socket créée (%d)\n", sock);
@@ -32,7 +32,7 @@ int creationDeSocket(const char *ip_dest, int port_dest)
 
     if (inet_aton(ip_dest, &serv.sin_addr) == 0)
     {
-        fprintf(stderr, "Adresse IP invalide !\n");
+        fprintf(stderr, "Adresse IP invalide.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -43,7 +43,7 @@ int creationDeSocket(const char *ip_dest, int port_dest)
         exit(EXIT_FAILURE);
     }
 
-    printf("Connexion au serveur %s:%d réussie !\n", ip_dest, port_dest);
+    printf("Connexion au serveur %s:%d réussie.\n", ip_dest, port_dest);
     return sock;
 }
 
@@ -55,11 +55,10 @@ void envoyerMessage(int sock, const char *message)
     int nb = send(sock, message, strlen(message) + 1, 0);
     if (nb <= 0)
     {
-        perror("Erreur en écriture (send)");
+        perror("Erreur lors de l'envoi (send)");
         close(sock);
         exit(EXIT_FAILURE);
     }
-    // printf("[DEBUG] Message envoyé : '%s' (%d octets)\n", message, nb);
 }
 
 // =====================================================
@@ -72,12 +71,11 @@ const char *recevoirMessage(int sock)
 
     memset(buffer, 0, sizeof(buffer));
 
-    // printf("[DEBUG] En attente de la réponse du serveur...\n");
     int nb = recv(sock, buffer, sizeof(buffer) - 1, 0);
 
     if (nb < 0)
     {
-        perror("Erreur en lecture (recv)");
+        perror("Erreur lors de la lecture (recv)");
         close(sock);
         exit(EXIT_FAILURE);
     }
@@ -152,7 +150,7 @@ void afficherLePendu(const char *state)
         case 0: debut = 320; fin = 352; break;
 
         default:
-            printf("[DEBUG] Stade invalide : %d\n", stade);
+            printf("Stade invalide : %d\n", stade);
             fclose(file);
             return;
     }
@@ -224,13 +222,13 @@ void jeuDuPenduV0(int sock, const char *ip_dest)
 
     // --- Fin du jeu ---
     if (strcmp(reponse, "VICTOIRE") == 0) {
-        printf("\n|================================|");
-        printf("\n|          VICTOIRE !            |");
-        printf("\n|================================|\n\n");
+        printf("\n|================================|\n");
+        printf("|          VICTOIRE              |\n");
+        printf("|================================|\n\n");
     } else {
-        printf("\n|================================|");
-        printf("\n|          DÉFAITE...            |");
-        printf("\n|================================|\n\n");
+        printf("\n|================================|\n");
+        printf("|          DÉFAITE               |\n");
+        printf("|================================|\n\n");
 
         FILE *file = NULL;
         const char *paths[] = {
@@ -339,7 +337,7 @@ int main(int argc, char *argv[])
     sscanf(argv[2], "%d", &port_dest);
 
     // Création + connexion
-    int sock = creationDeSocket(ip_dest, port_dest);
+    int sock = creationSocket(ip_dest, port_dest);
 
     // Boucle de communication client ↔ serveur
     boucleClient(sock, ip_dest);

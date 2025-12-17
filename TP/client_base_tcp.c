@@ -13,17 +13,12 @@ int main(int argc, char *argv[]){
 	socklen_t longueurAdresse;
 
 	char buffer[]="Hello server!"; // buffer stockant le message
-	int nb; /* nb d’octets écrits et lus */
+	int nb; /* nombre d'octets écrits et lus */
 
 	char ip_dest[16];
 	int  port_dest;
 
-	// Pour pouvoir contacter le serveur, le client doit connaître son adresse IP et le port de comunication
-	// Ces 2 informations sont passées sur la ligne de commande
-	// Si le serveur et le client tournent sur la même machine alors l'IP locale fonctionne : 127.0.0.1
-	// Le port d'écoute du serveur est 5000 dans cet exemple, donc en local utiliser la commande :
-	// ./client_base_tcp 127.0.0.1 5000
-	if (argc>1) { // si il y a au moins 2 arguments passés en ligne de commande, récupération ip et port
+	if (argc>1) {
 		strncpy(ip_dest,argv[1],16);
 		sscanf(argv[2],"%d",&port_dest);
 	}else{
@@ -31,53 +26,42 @@ int main(int argc, char *argv[]){
 		exit(-1);
 	}
 
-	// Crée un socket de communication
+	/* Création du socket */
 	descripteurSocket = socket(AF_INET, SOCK_STREAM, 0);
-	// Teste la valeur renvoyée par l’appel système socket()
 	if(descripteurSocket < 0){
-		perror("Erreur en création de la socket..."); // Affiche le message d’erreur
-		exit(-1); // On sort en indiquant un code erreur
+		perror("Erreur lors de la création de la socket");
+		exit(-1);
 	}
-	printf("Socket créée! (%d)\n", descripteurSocket);
+	printf("Socket créée (%d)\n", descripteurSocket);
 
-
-	// Remplissage de sockaddrDistant (structure sockaddr_in identifiant la machine distante)
-	// Obtient la longueur en octets de la structure sockaddr_in
+	/* Remplissage de sockaddrDistant */
 	longueurAdresse = sizeof(sockaddrDistant);
-	// Initialise à 0 la structure sockaddr_in
-	// memset sert à faire une copie d'un octet n fois à partir d'une adresse mémoire donnée
-	// ici l'octet 0 est recopié longueurAdresse fois à partir de l'adresse &sockaddrDistant
 	memset(&sockaddrDistant, 0x00, longueurAdresse);
-	// Renseigne la structure sockaddr_in avec les informations du serveur distant
 	sockaddrDistant.sin_family = AF_INET;
-	// On choisit le numéro de port d’écoute du serveur
 	sockaddrDistant.sin_port = htons(port_dest);
-	// On choisit l’adresse IPv4 du serveur
 	inet_aton(ip_dest, &sockaddrDistant.sin_addr);
 
-	// Débute la connexion vers le processus serveur distant
+	/* Connexion */
 	if((connect(descripteurSocket, (struct sockaddr *)&sockaddrDistant,longueurAdresse)) == -1){
-		perror("Erreur de connection avec le serveur distant...");
+		perror("Erreur de connexion avec le serveur distant");
 		close(descripteurSocket);
-		exit(-2); // On sort en indiquant un code erreur
+		exit(-2);
 	}
-	printf("Connexion au serveur %s:%d réussie!\n",ip_dest,port_dest);
+	printf("Connexion au serveur %s:%d réussie.\n",ip_dest,port_dest);
 
- 	// Envoi du message
-	//switch(nb = write(descripteurSocket, buffer, strlen(buffer))){
+ 	/* Envoi */
 	switch(nb = send(descripteurSocket, buffer, strlen(buffer)+1,0)){
-		case -1 : /* une erreur ! */
-     			perror("Erreur en écriture...");
+		case -1 :
+     			perror("Erreur lors de l'écriture");
 		     	close(descripteurSocket);
 		     	exit(-3);
-		case 0 : /* le socket est fermée */
-			fprintf(stderr, "Le socket a été fermée par le serveur !\n\n");
+		case 0 :
+			fprintf(stderr, "La socket a été fermée par le serveur.\n\n");
 			return 0;
-		default: /* envoi de n octets */
-			printf("Message %s envoyé! (%d octets)\n\n", buffer, nb);
+		default:
+			printf("Message '%s' envoyé (%d octets)\n\n", buffer, nb);
 	}
 
-	// On ferme la ressource avant de quitter
 	close(descripteurSocket);
 
 	return 0;

@@ -19,49 +19,42 @@ int main(int argc, char *argv[]){
 
 	int socketDialogue;
 	struct sockaddr_in pointDeRencontreDistant;
-	char messageRecu[LG_MESSAGE]; /* le message de la couche Application ! */
-	int ecrits, lus; /* nb d’octets ecrits et lus */
-	int retour;
+	char messageRecu[LG_MESSAGE]; /* le message de la couche application */
+	int lus; /* nombre d'octets lus */
 
-	// Crée un socket de communication
+	/* Créer un socket de communication */
 	socketEcoute = socket(AF_INET, SOCK_STREAM, 0); 
-	// Teste la valeur renvoyée par l’appel système socket() 
 	if(socketEcoute < 0){
-		perror("socket"); // Affiche le message d’erreur 
-	exit(-1); // On sort en indiquant un code erreur
+		perror("socket"); /* message d'erreur système */
+		exit(-1);
 	}
-	printf("Socket créée avec succès ! (%d)\n", socketEcoute); // On prépare l’adresse d’attachement locale
-	//setsockopt()
+	printf("Socket créée (%d)\n", socketEcoute); /* préparation de l'adresse locale */
 
-
-	// Remplissage de sockaddrDistant (structure sockaddr_in identifiant le point d'écoute local)
+	/* Remplissage de la structure d'attachement locale */
 	longueurAdresse = sizeof(pointDeRencontreLocal);
-	// memset sert à faire une copie d'un octet n fois à partir d'une adresse mémoire donnée
-	// ici l'octet 0 est recopié longueurAdresse fois à partir de l'adresse &pointDeRencontreLocal
-	memset(&pointDeRencontreLocal, 0x00, longueurAdresse); pointDeRencontreLocal.sin_family = PF_INET;
-	pointDeRencontreLocal.sin_addr.s_addr = htonl(INADDR_ANY); // attaché à toutes les interfaces locales disponibles
-	pointDeRencontreLocal.sin_port = htons(PORT); // = 5000 ou plus
+	memset(&pointDeRencontreLocal, 0x00, longueurAdresse);
+	pointDeRencontreLocal.sin_family = PF_INET;
+	pointDeRencontreLocal.sin_addr.s_addr = htonl(INADDR_ANY);
+	pointDeRencontreLocal.sin_port = htons(PORT);
 	
-	// On demande l’attachement local de la socket
+	/* Attachement local de la socket */
 	if((bind(socketEcoute, (struct sockaddr *)&pointDeRencontreLocal, longueurAdresse)) < 0) {
 		perror("bind");
 		exit(-2); 
 	}
-	printf("Socket attachée avec succès !\n");
+	printf("Socket attachée.\n");
 
-	// On fixe la taille de la file d’attente à 5 (pour les demandes de connexion non encore traitées)
+	/* Mise en écoute passive */
 	if(listen(socketEcoute, 5) < 0){
    		perror("listen");
    		exit(-3);
 	}
-	printf("Socket placée en écoute passive ...\n");
+	printf("Socket mise en écoute passive.\n");
 	
-	// boucle d’attente de connexion : en théorie, un serveur attend indéfiniment ! 
 	while(1){
 		memset(messageRecu, 'a', LG_MESSAGE*sizeof(char));
-		printf("Attente d’une demande de connexion (quitter avec Ctrl-C)\n\n");
+		printf("Attente d'une demande de connexion (Ctrl-C pour quitter)\n\n");
 		
-		// c’est un appel bloquant
 		socketDialogue = accept(socketEcoute, (struct sockaddr *)&pointDeRencontreDistant, &longueurAdresse);
 		if (socketDialogue < 0) {
    			perror("accept");
@@ -70,24 +63,22 @@ int main(int argc, char *argv[]){
    			exit(-4);
 		}
 		
-		// On réception les données du client (cf. protocole)
-		//lus = read(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char)); // ici appel bloquant
-		lus = recv(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char),0); // ici appel bloquant
+		/* Réception des données client (appel bloquant) */
+		lus = recv(socketDialogue, messageRecu, LG_MESSAGE*sizeof(char), 0);
 		switch(lus) {
-			case -1 : /* une erreur ! */ 
+			case -1 : 
 				  perror("read"); 
 				  close(socketDialogue); 
 				  exit(-5);
-			case 0  : /* la socket est fermée */
-				  fprintf(stderr, "La socket a été fermée par le client !\n\n");
+			case 0  : 
+				  fprintf(stderr, "La socket a été fermée par le client.\n\n");
    				  close(socketDialogue);
    				  return 0;
-			default:  /* réception de n octets */
-				  printf("Message reçu : %s (%d octets)\n\n", messageRecu, lus);
+			default:  
+				  printf("Message reçu : %s (%d octets)\n\n", messageRecu, lus);
 		}
 
 	}
-	// On ferme la ressource avant de quitter
-   	close(socketEcoute);
+	close(socketEcoute);
 	return 0; 
 }
